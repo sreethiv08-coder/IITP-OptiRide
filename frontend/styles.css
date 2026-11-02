@@ -1,0 +1,748 @@
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --teal: #104b4c;
+    --dark-teal: #0d3e40;
+    --mint: #dff3ed;
+    --light-mint: #eef9f5;
+    --cream: #fffdf3;
+    --green: #238b73;
+    --purple: #58319a;
+    --light-purple: #f0eaff;
+    --text: #183c40;
+    --muted: #6d8582;
+    --white: #ffffff;
+}
+
+body {
+    font-family: "Trebuchet MS", Arial, sans-serif;
+    background: var(--cream);
+    color: var(--text);
+    min-height: 100vh;
+}
+
+button, input, select {
+    font: inherit;
+}
+
+button {
+    cursor: pointer;
+}
+
+/* HEADER */
+
+.topbar {
+    min-height: 82px;
+    background: var(--teal);
+    color: white;
+    padding: 13px 6%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+    position: relative;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.brand-symbol {
+    width: 43px;
+    height: 43px;
+    border-radius: 14px;
+    background: #c9eee1;
+    color: var(--teal);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+    font-size: 15px;
+    transform: rotate(-7deg);
+}
+
+.brand h2 {
+    font-size: 23px;
+    letter-spacing: -0.5px;
+}
+
+.brand h2 span {
+    color: #ffd66e;
+}
+
+.brand p {
+    color: #d2e9df;
+    font-size: 12px;
+    margin-top: 4px;
+}
+
+.tagline {
+    color: #f8df9c;
+    font-size: 13px;
+    font-style: italic;
+    transform: rotate(-5deg);
+}
+
+.profile-btn {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    border: none;
+    background: #d4eee4;
+    color: var(--teal);
+    font-size: 17px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.profile-btn:hover {
+    background: white;
+}
+
+/* COMMON */
+
+.hidden {
+    display: none !important;
+}
+
+.eyebrow {
+    color: var(--green);
+    font-size: 11px;
+    font-weight: bold;
+    letter-spacing: 1.6px;
+}
+
+/* AUTHENTICATION */
+
+.auth-container {
+    min-height: calc(100vh - 82px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 35px 18px;
+    background: linear-gradient(135deg, #eff9f4, #fffdf4);
+}
+
+.auth-card {
+    width: 100%;
+    max-width: 440px;
+    padding: 36px;
+    border-radius: 22px;
+    background: white;
+    box-shadow: 0 12px 35px #174d4212;
+}
+
+.auth-heading {
+    text-align: center;
+    margin-bottom: 27px;
+}
+
+.auth-heading h1 {
+    color: var(--teal);
+    font-size: 28px;
+    margin: 13px 0 10px;
+}
+
+.auth-heading p {
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.auth-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding: 5px;
+    background: #edf5f1;
+    border-radius: 11px;
+    margin-bottom: 24px;
+    gap: 5px;
+}
+
+.auth-tabs button {
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    padding: 12px;
+    border-radius: 8px;
+    font-weight: bold;
+}
+
+.auth-tabs button.active {
+    background: var(--teal);
+    color: white;
+}
+
+/* FORMS */
+
+form {
+    background: white;
+    padding: 28px;
+    border-radius: 17px;
+    margin-top: 24px;
+    box-shadow: 0 5px 22px #174d420b;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+}
+
+form label {
+    grid-column: 1 / -1;
+    font-size: 13px;
+    font-weight: bold;
+    color: #526e69;
+}
+
+form input,
+form select {
+    grid-column: 1 / -1;
+    width: 100%;
+    padding: 13px 14px;
+    border: 1px solid #dce9e3;
+    border-radius: 9px;
+    background: #fcfefd;
+    color: var(--text);
+    font-size: 14px;
+    outline: none;
+    transition: 0.2s;
+}
+
+form input:focus,
+form select:focus {
+    border-color: var(--green);
+    box-shadow: 0 0 0 3px #238b7315;
+}
+
+/* AUTH FORMS */
+
+.auth-card form {
+    display: grid;
+    grid-template-columns: 1fr;
+    padding: 0;
+    margin: 0;
+    box-shadow: none;
+    gap: 10px;
+}
+
+.auth-card form h2 {
+    font-size: 21px;
+    color: var(--teal);
+    margin-bottom: 8px;
+}
+
+.auth-card form label {
+    margin-top: 7px;
+}
+
+.auth-card form input {
+    grid-column: 1 / -1;
+}
+
+.primary-btn {
+    grid-column: 1 / -1;
+    width: 100%;
+    padding: 14px 18px;
+    border: none;
+    border-radius: 10px;
+    background: var(--green);
+    color: white;
+    font-weight: bold;
+    font-size: 15px;
+    transition: 0.2s;
+}
+
+.primary-btn:hover {
+    background: #176f5c;
+    transform: translateY(-2px);
+}
+
+.primary-btn:disabled {
+    background: #aabbb4;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.auth-switch {
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 14px;
+}
+
+.auth-switch button {
+    border: none;
+    background: transparent;
+    color: var(--green);
+    font-weight: bold;
+    font-size: 13px;
+}
+
+.auth-switch button:hover {
+    text-decoration: underline;
+}
+
+.auth-message {
+    color: #c0392b;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+/* HOME PAGE */
+
+main {
+    max-width: 1000px;
+    margin: 35px auto;
+    padding: 0 22px 45px;
+}
+
+.hero {
+    min-height: 190px;
+    background: linear-gradient(110deg, #e8f7ef, #f5fcf6);
+    border-radius: 22px;
+    padding: 35px 42px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    overflow: hidden;
+    margin-bottom: 23px;
+}
+
+.hero-text {
+    max-width: 470px;
+}
+
+.hero h1 {
+    font-size: 38px;
+    color: var(--teal);
+    margin: 12px 0;
+}
+
+.hero p {
+    color: #597c76;
+    font-size: 15px;
+    line-height: 1.6;
+}
+
+.hero-decoration {
+    width: 160px;
+    height: 110px;
+    position: relative;
+    border-radius: 50%;
+    background: #d4efe4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.route-line {
+    position: absolute;
+    width: 95px;
+    height: 55px;
+    border: 2px dashed var(--green);
+    border-left: none;
+    border-bottom: none;
+    border-radius: 50%;
+    transform: rotate(-15deg);
+}
+
+.route-dot {
+    width: 12px;
+    height: 12px;
+    border: 3px solid white;
+    background: var(--green);
+    border-radius: 50%;
+    position: absolute;
+    left: 32px;
+    top: 37px;
+}
+
+.second-dot {
+    left: 111px;
+    top: 60px;
+    background: var(--purple);
+}
+
+.route-label {
+    position: absolute;
+    right: -32px;
+    top: -12px;
+    font-size: 11px;
+    color: var(--green);
+    font-style: italic;
+    transform: rotate(-7deg);
+}
+
+/* HOME CHOICE CARDS */
+
+.choice-container {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 18px;
+}
+
+.choice-card {
+    width: 100%;
+    min-height: 145px;
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    padding: 24px 27px;
+    border: none;
+    border-radius: 19px;
+    text-align: left;
+    transition: 0.25s;
+}
+
+.choice-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 25px #00000012;
+}
+
+.find-card {
+    background: #e6f5ef;
+    color: var(--teal);
+}
+
+.offer-card {
+    background: var(--light-purple);
+    color: var(--purple);
+}
+
+.choice-icon {
+    width: 75px;
+    height: 75px;
+    border-radius: 20px;
+    flex-shrink: 0;
+    background: #cceade;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    font-weight: bold;
+}
+
+.offer-card .choice-icon {
+    background: #ded2fb;
+}
+
+.choice-content {
+    flex: 1;
+}
+
+.choice-content h2 {
+    font-size: 25px;
+    margin-bottom: 8px;
+}
+
+.choice-content p {
+    font-size: 14px;
+    line-height: 1.5;
+    color: #58766e;
+}
+
+.offer-card .choice-content p {
+    color: #71628d;
+}
+
+.card-caption {
+    display: block;
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--green);
+}
+
+.offer-card .card-caption {
+    color: var(--purple);
+}
+
+.arrow-circle {
+    width: 43px;
+    height: 43px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: #c8eade;
+    color: var(--teal);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 25px;
+}
+
+.offer-card .arrow-circle {
+    background: #ded2fb;
+    color: var(--purple);
+}
+
+/* FORM SECTIONS */
+
+.form-section {
+    max-width: 750px;
+    margin: 0 auto;
+}
+
+.back-btn,
+section > button {
+    border: 1px solid #dce9e3;
+    background: white;
+    padding: 11px 17px;
+    border-radius: 9px;
+    color: var(--teal);
+    margin-bottom: 22px;
+    font-weight: bold;
+}
+
+.back-btn:hover {
+    background: var(--mint);
+}
+
+.section-heading {
+    margin-bottom: 18px;
+}
+
+.section-heading h1 {
+    color: var(--teal);
+    font-size: 34px;
+    margin: 10px 0;
+}
+
+.section-heading p {
+    color: var(--muted);
+    font-size: 14px;
+}
+
+.ride-form {
+    margin-top: 22px;
+}
+
+/* PROFILE PANEL */
+
+.profile-panel {
+    position: fixed;
+    top: 75px;
+    right: 5%;
+    width: 315px;
+    max-width: calc(100vw - 30px);
+    background: white;
+    padding: 25px;
+    border-radius: 17px;
+    box-shadow: 0 12px 35px #00000025;
+    z-index: 1000;
+}
+
+.profile-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.profile-header h2 {
+    color: var(--teal);
+    font-size: 21px;
+}
+
+.profile-header button {
+    background: transparent;
+    border: none;
+    font-size: 26px;
+    color: var(--muted);
+}
+
+.profile-avatar {
+    width: 65px;
+    height: 65px;
+    background: var(--mint);
+    color: var(--teal);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 25px;
+    font-weight: bold;
+    margin: 0 auto 22px;
+}
+
+.profile-panel p {
+    color: var(--muted);
+    font-size: 14px;
+    margin: 14px 0;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.profile-panel strong {
+    color: var(--teal);
+}
+
+.logout-btn {
+    width: 100%;
+    padding: 13px;
+    background: #c65d55;
+    color: white;
+    border: none;
+    border-radius: 9px;
+    margin-top: 15px;
+    font-weight: bold;
+}
+
+.logout-btn:hover {
+    background: #a9433c;
+}
+
+/* MESSAGES AND RESULTS */
+
+#findMessage,
+#offerMessage {
+    margin-top: 15px;
+    color: var(--green);
+}
+
+#results {
+    margin-top: 25px;
+    display: grid;
+    gap: 15px;
+}
+
+.ride-card {
+    background: white;
+    padding: 23px;
+    border-radius: 15px;
+    border: 1px solid #e1eee7;
+    box-shadow: 0 5px 18px #00000008;
+}
+
+.ride-card h3 {
+    margin-bottom: 10px;
+    color: var(--teal);
+}
+
+.ride-card p {
+    color: var(--muted);
+    margin: 7px 0;
+    font-size: 14px;
+}
+
+.ride-card button {
+    margin-top: 15px;
+    background: var(--green);
+    color: white;
+    border: none;
+    padding: 11px 16px;
+    border-radius: 8px;
+}
+
+/* CHECKBOX */
+
+form label.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+form input[type="checkbox"] {
+    width: auto;
+    flex-shrink: 0;
+}
+
+/* RESPONSIVE */
+
+@media (max-width: 650px) {
+    .topbar {
+        padding: 13px 5%;
+        min-height: 75px;
+    }
+
+    .brand h2 {
+        font-size: 19px;
+    }
+
+    .tagline {
+        display: none;
+    }
+
+    main {
+        margin: 22px auto;
+        padding: 0 14px 35px;
+    }
+
+    .hero {
+        min-height: 175px;
+        padding: 25px 22px;
+    }
+
+    .hero h1 {
+        font-size: 29px;
+    }
+
+    .hero-decoration {
+        width: 90px;
+        height: 90px;
+        flex-shrink: 0;
+    }
+
+    .route-label {
+        display: none;
+    }
+
+    .choice-card {
+        padding: 19px 15px;
+        gap: 13px;
+        min-height: 130px;
+    }
+
+    .choice-icon {
+        width: 52px;
+        height: 52px;
+        font-size: 27px;
+        border-radius: 14px;
+    }
+
+    .choice-content h2 {
+        font-size: 19px;
+    }
+
+    .choice-content p {
+        font-size: 12px;
+    }
+
+    .card-caption {
+        font-size: 11px;
+    }
+
+    .arrow-circle {
+        width: 34px;
+        height: 34px;
+        font-size: 20px;
+    }
+
+    .auth-card {
+        padding: 27px 21px;
+    }
+
+    .auth-heading h1 {
+        font-size: 24px;
+    }
+
+    .ride-form {
+        grid-template-columns: 1fr;
+        padding: 22px;
+    }
+
+    .section-heading h1 {
+        font-size: 29px;
+    }
+
+    .profile-panel {
+        right: 15px;
+        top: 70px;
+    }
+}

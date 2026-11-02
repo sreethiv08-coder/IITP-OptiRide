@@ -1,0 +1,31 @@
+vehicle_type,destination,passenger_capacity,luggage_capacity,total_fare
+Auto,Patna Airport,3,1,300
+Auto,Patna Junction,3,1,300
+Auto,Gaya,3,1,450
+Auto,Muzaffarpur,3,1,450
+Auto,Darbhanga,3,1,450
+Sedan,Patna Airport,4,2,600
+Sedan,Patna Junction,4,2,600
+Sedan,Gaya,4,2,900
+Sedan,Muzaffarpur,4,2,900
+Sedan,Darbhanga,4,2,900
+SUV,Patna Airport,4,3,800
+SUV,Patna Junction,4,3,800
+SUV,Gaya,4,3,1200
+SUV,Muzaffarpur,4,3,1200
+SUV,Darbhanga,4,3,1200
+MPV,Patna Airport,6,4,1000
+MPV,Patna Junction,6,4,1000
+MPV,Gaya,6,4,1500
+MPV,Muzaffarpur,6,4,1500
+MPV,Darbhanga,6,4,1500
+Large Van,Patna Airport,10,8,1500
+Large Van,Patna Junction,10,8,1500
+Large Van,Gaya,10,8,2250
+Large Van,Muzaffarpur,10,8,2250
+Large Van,Darbhanga,10,8,2250
+Tempo Traveller,Patna Airport,12,12,1800
+Tempo Traveller,Patna Junction,12,12,1800
+Tempo Traveller,Gaya,12,12,2700
+Tempo Traveller,Muzaffarpur,12,12,2700
+Tempo Traveller,Darbhanga,12,12,2700

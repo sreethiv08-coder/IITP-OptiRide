@@ -1,0 +1,8 @@
+.venv/
+.venv_windows/
+__pycache__/
+*.pyc
+.env
+*.zip
+frontend_backup/
+outputs/

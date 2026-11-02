@@ -1,0 +1,357 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IITP OptiRide</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+    <div class="brand">
+        <div class="brand-symbol">OR</div>
+        <div>
+            <h2>IITP <span>OptiRide</span></h2>
+            <p>Same campus. Different routes.</p>
+        </div>
+    </div>
+
+    <div class="tagline">Let's go together!</div>
+
+    <button type="button" id="profileBtn" class="profile-btn hidden"
+            aria-label="Open profile">
+        <span id="profileInitial">?</span>
+    </button>
+</header>
+
+<!-- AUTHENTICATION -->
+
+<section id="authSection" class="auth-container">
+    <div class="auth-card">
+        <div class="auth-heading">
+            <span class="eyebrow">WELCOME TO IITP OPTIRIDE</span>
+            <h1>Your journey starts here!</h1>
+            <p>Travel together. Save together. Connect with fellow IIT Patna students.</p>
+        </div>
+
+        <div class="auth-tabs">
+            <button type="button" id="showLoginBtn" class="active">Login</button>
+            <button type="button" id="showRegisterBtn">Register</button>
+        </div>
+
+        <!-- LOGIN -->
+
+        <form id="loginForm" class="auth-form">
+            <h2>Welcome back!</h2>
+
+            <label for="loginRoll">Roll Number</label>
+            <input id="loginRoll" name="roll_number"
+                   placeholder="Enter your roll number"
+                   autocomplete="username" required>
+
+            <label for="loginPassword">Password</label>
+            <input id="loginPassword" type="password" name="password"
+                   placeholder="Enter your password"
+                   autocomplete="current-password" required>
+
+            <button type="submit" class="primary-btn">Login →</button>
+
+            <p id="loginMessage" class="auth-message"></p>
+
+            <p class="auth-switch">
+                New to OptiRide?
+                <button type="button" id="goToRegister">Create an account</button>
+            </p>
+        </form>
+
+        <!-- REGISTER -->
+
+        <form id="registerForm" class="auth-form hidden">
+            <h2>Create your account</h2>
+
+            <label for="registerName">Full Name</label>
+            <input id="registerName" name="name"
+                   placeholder="Enter your full name"
+                   autocomplete="name" required>
+
+            <label for="registerRoll">Roll Number</label>
+            <input id="registerRoll" name="roll_number"
+                   placeholder="Enter your roll number"
+                   autocomplete="username" required>
+
+            <label for="registerContact">Contact Number</label>
+            <input id="registerContact" type="tel"
+                   name="contact_number"
+                   placeholder="Enter your contact number"
+                   minlength="10" maxlength="15"
+                   autocomplete="tel" required>
+
+            <label for="registerGender">Gender</label>
+            <select id="registerGender" name="gender" required>
+                <option value="">Select gender</option>
+                <option value="FEMALE">Female</option>
+                <option value="MALE">Male</option>
+                <option value="OTHER">Other</option>
+            </select>
+
+            <label for="registerPassword">Create Password</label>
+            <input id="registerPassword" type="password" name="password"
+                   placeholder="At least 8 characters"
+                   minlength="8" autocomplete="new-password" required>
+
+            <label for="confirmPassword">Confirm Password</label>
+            <input id="confirmPassword" type="password"
+                   name="confirm_password"
+                   placeholder="Re-enter your password"
+                   minlength="8" autocomplete="new-password" required>
+
+            <button type="submit" class="primary-btn">Create Account →</button>
+
+            <p id="registerMessage" class="auth-message"></p>
+
+            <p class="auth-switch">
+                Already registered?
+                <button type="button" id="goToLogin">Login here</button>
+            </p>
+        </form>
+    </div>
+</section>
+
+<!-- PROFILE PANEL -->
+
+<div id="profilePanel" class="profile-panel hidden">
+    <div class="profile-header">
+        <h2>My Profile</h2>
+        <button type="button" id="closeProfileBtn"
+                aria-label="Close profile">×</button>
+    </div>
+
+    <div class="profile-avatar" id="profileAvatar">?</div>
+
+    <p><strong>Name:</strong> <span id="profileName">-</span></p>
+    <p><strong>Roll Number:</strong> <span id="profileRoll">-</span></p>
+    <p><strong>Contact:</strong> <span id="profileContact">Not added</span></p>
+    <p><strong>Gender:</strong> <span id="profileGender">Not added</span></p>
+
+    <button type="button" id="logoutBtn" class="logout-btn">Logout</button>
+    <p id="profileMessage"></p>
+</div>
+
+<!-- MAIN APPLICATION -->
+
+<main id="appMain" class="hidden">
+
+    <section id="home" class="home-section">
+        <div class="hero">
+            <div class="hero-text">
+                <span class="eyebrow">YOUR CAMPUS TRAVEL COMPANION</span>
+                <h1>Going somewhere?</h1>
+                <p>Find fellow IIT Patna students travelling your way.</p>
+            </div>
+
+            <div class="hero-decoration">
+                <span class="route-line"></span>
+                <span class="route-dot"></span>
+                <span class="route-dot second-dot"></span>
+                <span class="route-label">Less traffic,<br>more fun!</span>
+            </div>
+        </div>
+
+        <div class="choice-container">
+
+            <button type="button" class="choice-card find-card"
+                    onclick="showSection('find')">
+                <div class="choice-icon">⌖</div>
+                <div class="choice-content">
+                    <h2>Find a Ride</h2>
+                    <p>Looking for a cab? Find students travelling to your destination.</p>
+                    <span class="card-caption">Because solo rides are so 2010...</span>
+                </div>
+                <span class="arrow-circle">→</span>
+            </button>
+
+            <button type="button" class="choice-card offer-card"
+                    onclick="showSection('offer')">
+                <div class="choice-icon">↗</div>
+                <div class="choice-content">
+                    <h2>Offer a Ride</h2>
+                    <p>Already booked a cab? Share your available seats.</p>
+                    <span class="card-caption">More riders = more smiles!</span>
+                </div>
+                <span class="arrow-circle">→</span>
+            </button>
+
+        </div>
+    </section>
+
+    <!-- FIND A RIDE -->
+
+    <section id="find" class="form-section hidden">
+        <button type="button" class="back-btn"
+                onclick="showSection('home')">← Back</button>
+
+        <div class="section-heading">
+            <span class="eyebrow">LET'S FIND YOUR WAY</span>
+            <h1>Find a Ride</h1>
+            <p>Tell us where you're headed. Let's find your travel buddies!</p>
+        </div>
+
+        <form id="findForm" class="ride-form">
+
+            <label for="findName">Full Name</label>
+            <input id="findName" name="student_name"
+                   placeholder="Full name" required>
+
+            <label for="findRoll">Roll Number</label>
+            <input id="findRoll" name="roll_number"
+                   placeholder="Roll number" required>
+
+            <label for="findContact">Contact Number</label>
+            <input id="findContact" name="contact_number"
+                   type="tel" placeholder="Contact number" required>
+
+            <label for="findPickup">Pickup Location</label>
+            <input id="findPickup" name="pickup_location"
+                   placeholder="Pickup location" required>
+
+            <label for="findDestination">Destination</label>
+            <input id="findDestination" name="destination"
+                   placeholder="Destination" required>
+
+            <label for="findDate">Date</label>
+            <input id="findDate" type="date"
+                   name="travel_date" required>
+
+            <label for="findTime">Preferred Time</label>
+            <input id="findTime" type="time"
+                   name="travel_time" required>
+
+            <label for="findPassengers">Number of Passengers</label>
+            <input id="findPassengers" type="number"
+                   name="passengers" min="1" value="1" required>
+
+            <label for="findLuggage">Luggage Units</label>
+            <input id="findLuggage" type="number"
+                   name="luggage" min="0" value="0" required>
+
+            <label for="findGender">Gender</label>
+            <select id="findGender" name="gender" required>
+                <option value="">Select gender</option>
+                <option value="FEMALE">Female</option>
+                <option value="MALE">Male</option>
+                <option value="OTHER">Other</option>
+            </select>
+
+            <label for="findPreference">Gender Preference</label>
+            <select id="findPreference" name="gender_preference" required>
+                <option value="">Select preference</option>
+                <option value="SAME">Same</option>
+                <option value="ANY">Any</option>
+            </select>
+
+            <button type="submit" class="primary-btn">Find Rides →</button>
+        </form>
+
+        <div id="findMessage"></div>
+        <div id="results"></div>
+    </section>
+
+    <!-- OFFER A RIDE -->
+
+    <section id="offer" class="form-section hidden">
+        <button type="button" class="back-btn"
+                onclick="showSection('home')">← Back</button>
+
+        <div class="section-heading">
+            <span class="eyebrow">SHARE YOUR JOURNEY</span>
+            <h1>Offer a Ride</h1>
+            <p>Already booked a cab? Let others join your journey!</p>
+        </div>
+
+        <form id="offerForm" class="ride-form">
+
+            <label for="offerName">Full Name</label>
+            <input id="offerName" name="student_name"
+                   placeholder="Full name" required>
+
+            <label for="offerRoll">Roll Number</label>
+            <input id="offerRoll" name="roll_number"
+                   placeholder="Roll number" required>
+
+            <label for="offerContact">Contact Number</label>
+            <input id="offerContact" name="contact_number"
+                   type="tel" placeholder="Contact number" required>
+
+            <label for="offerPickup">Pickup Location</label>
+            <input id="offerPickup" name="pickup_location"
+                   placeholder="Pickup location" required>
+
+            <label for="offerDestination">Destination</label>
+            <input id="offerDestination" name="destination"
+                   placeholder="Destination" required>
+
+            <label for="offerDate">Date</label>
+            <input id="offerDate" type="date"
+                   name="travel_date" required>
+
+            <label for="offerTime">Departure Time</label>
+            <input id="offerTime" type="time"
+                   name="departure_time" required>
+
+            <label for="offerVehicle">Vehicle Type</label>
+            <input id="offerVehicle" name="vehicle_type"
+                   placeholder="Vehicle type" required>
+
+            <label for="offerCapacity">Total Passenger Capacity</label>
+            <input id="offerCapacity" type="number"
+                   name="passenger_capacity" min="1" required>
+
+            <label for="offerSeats">Available Seats</label>
+            <input id="offerSeats" type="number"
+                   name="available_seats" min="1" required>
+
+            <label for="offerLuggage">Luggage Capacity</label>
+            <input id="offerLuggage" type="number"
+                   name="luggage_capacity" min="0" required>
+
+            <label for="offerFare">Total Cab Fare (₹)</label>
+            <input id="offerFare" type="number"
+                   name="total_fare" min="1" required>
+
+            <label for="offerGender">Gender</label>
+            <select id="offerGender" name="gender" required>
+                <option value="">Select gender</option>
+                <option value="FEMALE">Female</option>
+                <option value="MALE">Male</option>
+                <option value="OTHER">Other</option>
+            </select>
+
+            <label for="offerPreference">Gender Preference</label>
+            <select id="offerPreference" name="gender_preference" required>
+                <option value="">Select preference</option>
+                <option value="SAME">Same</option>
+                <option value="ANY">Any</option>
+            </select>
+
+            <label class="checkbox-label">
+                <input type="checkbox" name="cab_booked"
+                       id="cabBooked" value="yes" required>
+                I confirm that I have already booked this cab.
+            </label>
+
+            <button type="submit" id="postRideBtn"
+                    class="primary-btn" disabled>
+                Post Ride →
+            </button>
+        </form>
+
+        <div id="offerMessage"></div>
+    </section>
+
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

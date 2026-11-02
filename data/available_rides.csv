@@ -1,0 +1,26 @@
+ride_id,booked_by,pickup_location,destination,departure_time,vehicle_type,total_fare,passenger_capacity,luggage_capacity,booked_passengers,booked_luggage
+RIDE001,Student_735,IIT Patna Campus,Patna Junction,2026-10-31 13:15,Auto,450,3,1,2,0
+RIDE002,Student_774,IIT Patna Campus,Patna Junction,2026-11-17 09:15,Large Van,2250,10,8,1,6
+RIDE003,Student_943,IIT Patna Campus,Patna Junction,2026-10-31 08:15,Tempo Traveller,2700,12,12,2,1
+RIDE004,Student_470,IIT Patna Campus,Darbhanga,2026-11-25 06:45,Sedan,1200,4,2,3,1
+RIDE005,Student_377,IIT Patna Campus,Gaya,2026-11-05 17:00,Sedan,1200,4,2,1,1
+RIDE006,Student_312,IIT Patna Campus,Muzaffarpur,2026-11-15 04:00,Large Van,3000,10,8,7,3
+RIDE007,Student_566,IIT Patna Campus,Darbhanga,2026-11-24 09:30,Large Van,3000,10,8,5,5
+RIDE008,Student_659,IIT Patna Campus,Patna Junction,2026-11-28 08:45,SUV,1200,4,3,2,3
+RIDE009,Student_755,IIT Patna Campus,Muzaffarpur,2026-11-02 05:00,Large Van,3000,10,8,5,0
+RIDE010,Student_341,IIT Patna Campus,Patna Junction,2026-11-11 21:45,Large Van,2250,10,8,4,0
+RIDE011,Student_264,IIT Patna Campus,Patna Junction,2026-11-12 12:45,Large Van,2250,10,8,3,6
+RIDE012,Student_920,IIT Patna Campus,Patna Airport,2026-11-13 18:45,Sedan,900,4,2,3,2
+RIDE013,Student_935,IIT Patna Campus,Patna Airport,2026-11-28 05:15,MPV,1500,6,4,3,3
+RIDE014,Student_212,IIT Patna Campus,Muzaffarpur,2026-11-13 19:00,MPV,2000,6,4,5,3
+RIDE015,Student_183,IIT Patna Campus,Darbhanga,2026-11-23 22:00,Sedan,1200,4,2,3,0
+RIDE016,Student_622,IIT Patna Campus,Patna Junction,2026-11-22 05:45,Tempo Traveller,2700,12,12,8,6
+RIDE017,Student_321,IIT Patna Campus,Muzaffarpur,2026-11-19 19:00,Large Van,3000,10,8,9,4
+RIDE018,Student_885,IIT Patna Campus,Muzaffarpur,2026-10-31 15:15,Auto,600,3,1,1,0
+RIDE019,Student_828,IIT Patna Campus,Gaya,2026-11-14 05:45,Sedan,1200,4,2,1,1
+RIDE020,Student_879,IIT Patna Campus,Gaya,2026-11-17 19:45,Sedan,1200,4,2,3,0
+RIDE021,Student_393,IIT Patna Campus,Patna Junction,2026-11-22 08:00,Sedan,900,4,2,1,1
+RIDE022,Student_100,IIT Patna Campus,Gaya,2026-11-16 16:00,MPV,2000,6,4,1,1
+RIDE023,Student_610,IIT Patna Campus,Gaya,2026-11-13 09:15,Sedan,1200,4,2,2,0
+RIDE024,Student_497,IIT Patna Campus,Darbhanga,2026-11-02 04:30,MPV,2000,6,4,2,3
+RIDE025,Student_485,IIT Patna Campus,Muzaffarpur,2026-11-18 18:00,Tempo Traveller,3600,12,12,4,9
