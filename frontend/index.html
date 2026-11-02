@@ -20,6 +20,11 @@
 
     <div class="tagline">Let's go together!</div>
 
+    <nav class="top-nav hidden" id="mainNav" aria-label="Main navigation">
+        <button type="button" class="nav-link" onclick="showSection('my-rides')">My Rides</button>
+        <button type="button" class="nav-link" onclick="showSection('my-upcoming')">My Upcoming Ride</button>
+    </nav>
+
     <button type="button" id="profileBtn" class="profile-btn hidden"
             aria-label="Open profile">
         <span id="profileInitial">?</span>
@@ -49,7 +54,9 @@
             <label for="loginRoll">Roll Number</label>
             <input id="loginRoll" name="roll_number"
                    placeholder="Enter your roll number"
-                   autocomplete="username" required>
+                   pattern="[A-Za-z0-9]{8}"
+                   title="Roll number must contain exactly 8 alphanumeric characters."
+                   maxlength="8" autocomplete="username" required>
 
             <label for="loginPassword">Password</label>
             <input id="loginPassword" type="password" name="password"
@@ -78,19 +85,24 @@
 
             <label for="registerRoll">Roll Number</label>
             <input id="registerRoll" name="roll_number"
-                   placeholder="Enter your roll number"
+                   placeholder="Enter your 8-character roll number"
+                   pattern="[A-Za-z0-9]{8}"
+                   title="Invalid roll number. Roll number must contain exactly 8 alphanumeric characters."
+                   minlength="8" maxlength="8"
                    autocomplete="username" required>
 
             <label for="registerContact">Contact Number</label>
             <input id="registerContact" type="tel"
                    name="contact_number"
-                   placeholder="Enter your contact number"
-                   minlength="10" maxlength="15"
+                   placeholder="Enter 10-digit contact number"
+                   pattern="[0-9]{10}"
+                   title="Invalid phone number. Please enter a valid 10-digit phone number."
+                   minlength="10" maxlength="10"
                    autocomplete="tel" required>
 
             <label for="registerGender">Gender</label>
             <select id="registerGender" name="gender" required>
-                <option value="">Select gender</option>
+                <option value="" selected disabled>Select gender</option>
                 <option value="FEMALE">Female</option>
                 <option value="MALE">Male</option>
                 <option value="OTHER">Other</option>
@@ -206,19 +218,37 @@
 
             <label for="findRoll">Roll Number</label>
             <input id="findRoll" name="roll_number"
-                   placeholder="Roll number" required>
+                   placeholder="Roll number"
+                   pattern="[A-Za-z0-9]{8}" maxlength="8" required>
 
             <label for="findContact">Contact Number</label>
             <input id="findContact" name="contact_number"
-                   type="tel" placeholder="Contact number" required>
+                   type="tel" placeholder="Contact number"
+                   pattern="[0-9]{10}" maxlength="10" required>
 
             <label for="findPickup">Pickup Location</label>
-            <input id="findPickup" name="pickup_location"
-                   placeholder="Pickup location" required>
+            <select id="findPickup" name="pickup_location" required>
+                <option value="" selected disabled>Select pickup location</option>
+                <option value="IIT Patna">IIT Patna</option>
+                <option value="Dhanapur">Dhanapur</option>
+                <option value="Patna Airport">Patna Airport</option>
+                <option value="Patna Railway Station">Patna Railway Station</option>
+                <option value="Patna Junction Railway Station">Patna Junction Railway Station</option>
+                <option value="Ara Railway Station">Ara Railway Station</option>
+                <option value="Bihta Railway Station">Bihta Railway Station</option>
+            </select>
 
             <label for="findDestination">Destination</label>
-            <input id="findDestination" name="destination"
-                   placeholder="Destination" required>
+            <select id="findDestination" name="destination" required>
+                <option value="" selected disabled>Select destination</option>
+                <option value="IIT Patna">IIT Patna</option>
+                <option value="Dhanapur">Dhanapur</option>
+                <option value="Patna Airport">Patna Airport</option>
+                <option value="Patna Railway Station">Patna Railway Station</option>
+                <option value="Patna Junction Railway Station">Patna Junction Railway Station</option>
+                <option value="Ara Railway Station">Ara Railway Station</option>
+                <option value="Bihta Railway Station">Bihta Railway Station</option>
+            </select>
 
             <label for="findDate">Date</label>
             <input id="findDate" type="date"
@@ -230,7 +260,7 @@
 
             <label for="findPassengers">Number of Passengers</label>
             <input id="findPassengers" type="number"
-                   name="passengers" min="1" value="1" required>
+                   name="passengers" min="1" max="6" value="1" required>
 
             <label for="findLuggage">Luggage Units</label>
             <input id="findLuggage" type="number"
@@ -238,7 +268,7 @@
 
             <label for="findGender">Gender</label>
             <select id="findGender" name="gender" required>
-                <option value="">Select gender</option>
+                <option value="" selected disabled>Select gender</option>
                 <option value="FEMALE">Female</option>
                 <option value="MALE">Male</option>
                 <option value="OTHER">Other</option>
@@ -246,7 +276,7 @@
 
             <label for="findPreference">Gender Preference</label>
             <select id="findPreference" name="gender_preference" required>
-                <option value="">Select preference</option>
+                <option value="" selected disabled>Select preference</option>
                 <option value="SAME">Same</option>
                 <option value="ANY">Any</option>
             </select>
@@ -254,8 +284,55 @@
             <button type="submit" class="primary-btn">Find Rides →</button>
         </form>
 
-        <div id="findMessage"></div>
+        <div id="findMessage" role="status"></div>
         <div id="results"></div>
+    </section>
+
+    <!-- MY RIDES -->
+
+    <section id="my-rides" class="form-section hidden">
+        <button type="button" class="back-btn"
+                onclick="showSection('home')">← Back</button>
+
+        <div class="section-heading">
+            <span class="eyebrow">YOUR RIDE ACTIVITY</span>
+            <h1>My Rides</h1>
+            <p>Manage your requests, cab offers and incoming join requests.</p>
+        </div>
+
+        <p id="myRidesMessage" role="status"></p>
+
+        <h2>My Group Requests</h2>
+        <div id="myGroupRequests"></div>
+
+        <h2>My Offered Rides</h2>
+        <div id="myOfferedRides"></div>
+
+        <h2>Incoming Join Requests</h2>
+        <div id="incomingJoinRequests"></div>
+
+        <h2>My Sent Join Requests</h2>
+        <div id="mySentJoinRequests"></div>
+    </section>
+
+    <!-- MY UPCOMING RIDE -->
+
+    <section id="my-upcoming" class="form-section hidden">
+        <button type="button" class="back-btn"
+                onclick="showSection('home')">← Back</button>
+
+        <div class="section-heading">
+            <span class="eyebrow">YOUR CONFIRMED JOURNEYS</span>
+            <h1>My Upcoming Ride</h1>
+            <p>Only rides where your participation has been confirmed appear here.</p>
+        </div>
+
+        <p id="upcomingMessage" role="status"></p>
+
+        <div id="upcomingRides"></div>
+
+        <h2 class="history-heading">Cancellation history</h2>
+        <div id="upcomingHistory"></div>
     </section>
 
     <!-- OFFER A RIDE -->
@@ -278,19 +355,37 @@
 
             <label for="offerRoll">Roll Number</label>
             <input id="offerRoll" name="roll_number"
-                   placeholder="Roll number" required>
+                   placeholder="Roll number"
+                   pattern="[A-Za-z0-9]{8}" maxlength="8" required>
 
             <label for="offerContact">Contact Number</label>
             <input id="offerContact" name="contact_number"
-                   type="tel" placeholder="Contact number" required>
+                   type="tel" placeholder="Contact number"
+                   pattern="[0-9]{10}" maxlength="10" required>
 
             <label for="offerPickup">Pickup Location</label>
-            <input id="offerPickup" name="pickup_location"
-                   placeholder="Pickup location" required>
+            <select id="offerPickup" name="pickup_location" required>
+                <option value="" selected disabled>Select pickup location</option>
+                <option value="IIT Patna">IIT Patna</option>
+                <option value="Dhanapur">Dhanapur</option>
+                <option value="Patna Airport">Patna Airport</option>
+                <option value="Patna Railway Station">Patna Railway Station</option>
+                <option value="Patna Junction Railway Station">Patna Junction Railway Station</option>
+                <option value="Ara Railway Station">Ara Railway Station</option>
+                <option value="Bihta Railway Station">Bihta Railway Station</option>
+            </select>
 
             <label for="offerDestination">Destination</label>
-            <input id="offerDestination" name="destination"
-                   placeholder="Destination" required>
+            <select id="offerDestination" name="destination" required>
+                <option value="" selected disabled>Select destination</option>
+                <option value="IIT Patna">IIT Patna</option>
+                <option value="Dhanapur">Dhanapur</option>
+                <option value="Patna Airport">Patna Airport</option>
+                <option value="Patna Railway Station">Patna Railway Station</option>
+                <option value="Patna Junction Railway Station">Patna Junction Railway Station</option>
+                <option value="Ara Railway Station">Ara Railway Station</option>
+                <option value="Bihta Railway Station">Bihta Railway Station</option>
+            </select>
 
             <label for="offerDate">Date</label>
             <input id="offerDate" type="date"
@@ -301,12 +396,21 @@
                    name="departure_time" required>
 
             <label for="offerVehicle">Vehicle Type</label>
-            <input id="offerVehicle" name="vehicle_type"
-                   placeholder="Vehicle type" required>
+            <select id="offerVehicle" name="vehicle_type" required>
+                <option value="" selected disabled>Select vehicle type</option>
+                <option value="Uber Go">Uber Go</option>
+                <option value="Go Non AC">Go Non AC</option>
+                <option value="Premier">Premier</option>
+                <option value="Uber XL">Uber XL</option>
+                <option value="Auto">Auto</option>
+                <option value="Other 4 Seater Car">Other 4 Seater Car</option>
+                <option value="Other 6 Seater Car">Other 6 Seater Car</option>
+            </select>
 
             <label for="offerCapacity">Total Passenger Capacity</label>
-            <input id="offerCapacity" type="number"
-                   name="passenger_capacity" min="1" required>
+            <select id="offerCapacity" name="passenger_capacity" required disabled>
+                <option value="" selected disabled>Select vehicle type first</option>
+            </select>
 
             <label for="offerSeats">Available Seats</label>
             <input id="offerSeats" type="number"
@@ -314,15 +418,21 @@
 
             <label for="offerLuggage">Luggage Capacity</label>
             <input id="offerLuggage" type="number"
-                   name="luggage_capacity" min="0" required>
+                   name="luggage_capacity" min="0" value="0" required>
 
             <label for="offerFare">Total Cab Fare (₹)</label>
             <input id="offerFare" type="number"
-                   name="total_fare" min="1" required>
+                   name="total_fare" min="1" step="0.01"
+                   placeholder="Enter actual total fare">
+
+            <p id="autoFareNote" class="form-hint hidden">
+                Fare depends on the auto driver's quotation.
+                Leave the fare empty if it is not yet known.
+            </p>
 
             <label for="offerGender">Gender</label>
             <select id="offerGender" name="gender" required>
-                <option value="">Select gender</option>
+                <option value="" selected disabled>Select gender</option>
                 <option value="FEMALE">Female</option>
                 <option value="MALE">Male</option>
                 <option value="OTHER">Other</option>
@@ -330,7 +440,7 @@
 
             <label for="offerPreference">Gender Preference</label>
             <select id="offerPreference" name="gender_preference" required>
-                <option value="">Select preference</option>
+                <option value="" selected disabled>Select preference</option>
                 <option value="SAME">Same</option>
                 <option value="ANY">Any</option>
             </select>
@@ -347,11 +457,215 @@
             </button>
         </form>
 
-        <div id="offerMessage"></div>
+        <div id="offerMessage" role="status"></div>
     </section>
 
 </main>
 
+<!-- FORM VALIDATION AND VEHICLE CAPACITY -->
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+    const vehicle = document.getElementById("offerVehicle");
+    const capacity = document.getElementById("offerCapacity");
+    const seats = document.getElementById("offerSeats");
+    const fare = document.getElementById("offerFare");
+    const autoFareNote = document.getElementById("autoFareNote");
+
+    const vehicleCapacities = {
+        "Uber Go": [4],
+        "Go Non AC": [4],
+        "Premier": [4],
+        "Uber XL": [6],
+        "Auto": [4, 5],
+        "Other 4 Seater Car": [4],
+        "Other 6 Seater Car": [6]
+    };
+
+    function updateVehicleCapacity() {
+        const selectedVehicle = vehicle.value;
+        const allowed = vehicleCapacities[selectedVehicle] || [];
+
+        capacity.innerHTML = "";
+
+        const placeholder = document.createElement("option");
+        placeholder.value = "";
+        placeholder.textContent = allowed.length
+            ? "Select passenger capacity"
+            : "Select vehicle type first";
+        placeholder.disabled = true;
+        placeholder.selected = true;
+        capacity.appendChild(placeholder);
+
+        allowed.forEach(function (count) {
+            const option = document.createElement("option");
+            option.value = String(count);
+            option.textContent = count + " Passengers";
+            capacity.appendChild(option);
+        });
+
+        capacity.disabled = allowed.length === 0;
+
+        seats.value = "";
+        seats.max = allowed.length ? Math.max(...allowed) : "";
+
+        if (selectedVehicle === "Auto") {
+            fare.required = false;
+            fare.placeholder = "Enter quoted fare if known";
+            autoFareNote.classList.remove("hidden");
+        } else {
+            fare.required = true;
+            fare.placeholder = "Enter actual total fare";
+            autoFareNote.classList.add("hidden");
+        }
+
+        fare.value = "";
+    }
+
+    vehicle.addEventListener("change", updateVehicleCapacity);
+
+    capacity.addEventListener("change", function () {
+        const maxSeats = Number(capacity.value);
+        seats.max = maxSeats || "";
+        seats.value = "";
+    });
+
+    seats.addEventListener("input", function () {
+        const maxSeats = Number(capacity.value);
+
+        if (maxSeats && Number(seats.value) > maxSeats) {
+            seats.setCustomValidity(
+                "Available seats cannot exceed the vehicle's passenger capacity."
+            );
+        } else {
+            seats.setCustomValidity("");
+        }
+    });
+
+    // Prevent identical pickup and destination selections.
+
+    function setupRouteValidation(pickupId, destinationId) {
+        const pickup = document.getElementById(pickupId);
+        const destination = document.getElementById(destinationId);
+
+        if (!pickup || !destination) return;
+
+        function updateOptions() {
+            Array.from(destination.options).forEach(function (option) {
+                option.disabled =
+                    option.value !== "" && option.value === pickup.value;
+            });
+
+            if (pickup.value && pickup.value === destination.value) {
+                destination.value = "";
+            }
+        }
+
+        pickup.addEventListener("change", updateOptions);
+        destination.addEventListener("change", function () {
+            if (pickup.value === destination.value) {
+                destination.setCustomValidity(
+                    "Pickup location and destination cannot be the same."
+                );
+            } else {
+                destination.setCustomValidity("");
+            }
+        });
+
+        pickup.addEventListener("change", function () {
+            destination.setCustomValidity("");
+        });
+
+        updateOptions();
+    }
+
+    setupRouteValidation("findPickup", "findDestination");
+    setupRouteValidation("offerPickup", "offerDestination");
+
+    // Registration password confirmation.
+
+    const registerForm = document.getElementById("registerForm");
+    const password = document.getElementById("registerPassword");
+    const confirmPassword = document.getElementById("confirmPassword");
+
+    function checkPasswordMatch() {
+        if (password.value !== confirmPassword.value) {
+            confirmPassword.setCustomValidity("Passwords do not match.");
+        } else {
+            confirmPassword.setCustomValidity("");
+        }
+    }
+
+    password.addEventListener("input", checkPasswordMatch);
+    confirmPassword.addEventListener("input", checkPasswordMatch);
+
+    registerForm.addEventListener("submit", function (event) {
+        checkPasswordMatch();
+
+        if (!registerForm.checkValidity()) {
+            event.preventDefault();
+            registerForm.reportValidity();
+        }
+    });
+
+    // Validate route and seat count before submitting.
+
+    const offerForm = document.getElementById("offerForm");
+
+    offerForm.addEventListener("submit", function (event) {
+        const maxSeats = Number(capacity.value);
+        const availableSeats = Number(seats.value);
+
+        if (!capacity.value || !maxSeats) {
+            event.preventDefault();
+            alert("Please select a valid passenger capacity.");
+            return;
+        }
+
+        if (availableSeats < 1 || availableSeats > maxSeats) {
+            event.preventDefault();
+            alert("Available seats cannot exceed passenger capacity.");
+            return;
+        }
+
+        if (fare.required && (!fare.value || Number(fare.value) <= 0)) {
+            event.preventDefault();
+            alert("Please enter the actual total cab fare.");
+            return;
+        }
+
+        if (fare.value && Number(fare.value) <= 0) {
+            event.preventDefault();
+            alert("Fare must be greater than zero.");
+            return;
+        }
+
+        if (
+            document.getElementById("offerPickup").value ===
+            document.getElementById("offerDestination").value
+        ) {
+            event.preventDefault();
+            alert("Pickup location and destination cannot be the same.");
+        }
+    });
+
+    const findForm = document.getElementById("findForm");
+
+    findForm.addEventListener("submit", function (event) {
+        if (
+            document.getElementById("findPickup").value ===
+            document.getElementById("findDestination").value
+        ) {
+            event.preventDefault();
+            alert("Pickup location and destination cannot be the same.");
+        }
+    });
+
+});
+</script>
+
 <script src="app.js"></script>
+
 </body>
 </html>

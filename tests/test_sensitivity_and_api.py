@@ -1,5 +1,6 @@
 """Sensitivity analysis (spec item 20), the CLI, and the web JSON API."""
 import json
+import secrets
 import threading
 import urllib.error
 import urllib.request
@@ -71,12 +72,21 @@ def server(tmp_path):
     httpd.server_close()
 
 
+_SESSION_COOKIE = None
+
+
 def call(base, method, path, body=None):
+    global _SESSION_COOKIE
     data = json.dumps(body).encode() if body is not None else None
-    request = urllib.request.Request(base + path, data=data, method=method,
-                                     headers={"Content-Type": "application/json"})
+    headers = {"Content-Type": "application/json"}
+    if _SESSION_COOKIE:
+        headers["Cookie"] = _SESSION_COOKIE
+    request = urllib.request.Request(base + path, data=data, method=method, headers=headers)
     try:
         with urllib.request.urlopen(request) as res:
+            cookie = res.headers.get("Set-Cookie")
+            if cookie:
+                _SESSION_COOKIE = cookie.split(";", 1)[0]
             text = res.read().decode()
             return res.status, (json.loads(text) if "json" in res.headers["Content-Type"] else text)
     except urllib.error.HTTPError as exc:
@@ -84,6 +94,16 @@ def call(base, method, path, body=None):
 
 
 def test_api_full_flow(server):
+    global _SESSION_COOKIE
+    _SESSION_COOKIE = None
+    status, registered = call(server, "POST", "/api/auth/register", {
+        "name": "API Test Student",
+        "roll_number": "API-TEST-" + secrets.token_hex(4).upper(),
+        "password": "TestPass123",
+        "contact_number": "9876543210",
+        "gender": "OTHER"
+    })
+    assert status == 201 and registered["user"]["roll_number"].startswith("API-TEST-")
     assert call(server, "GET", "/")[1].startswith("<!doctype html>")
     status, data = call(server, "GET", "/api/data")
     assert status == 200 and len(data["requests"]) == 5
@@ -92,8 +112,8 @@ def test_api_full_flow(server):
     status, cmp_ = call(server, "POST", "/api/compare", {"settings": {}})
     assert cmp_["greedy"]["verified"] and cmp_["ip"]["verified"]
     status, new = call(server, "POST", "/api/requests", {
-        "request_id": "N1", "student_name": "New", "pickup_location": "IIT Patna Campus",
-        "destination": "Purnia", "earliest_departure": "2026-11-12T08:00",
+        "request_id": "N1", "student_name": "New", "pickup_location": "IIT Patna",
+        "destination": "Patna Airport", "earliest_departure": "2026-11-12T08:00",
         "latest_departure": "2026-11-12T09:00", "passengers": 1, "luggage": 0})
     assert status == 200 and "manual confirmation" in new["note"]
     settings = {"now": "2026-11-01T09:00"}

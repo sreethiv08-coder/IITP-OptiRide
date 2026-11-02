@@ -11,7 +11,7 @@ import json
 import mimetypes
 import threading
 from dataclasses import replace
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from http import HTTPStatus
 from http.cookies import SimpleCookie
@@ -25,6 +25,7 @@ from .compatibility import REASONS
 from .config import PROJECT_ROOT, Config
 from .data_loader import DataValidationError
 from .fares import savings_summary
+
 from .ip_model import run_ip
 from .greedy import run_greedy
 from .models import Dataset, TripRequest
@@ -36,6 +37,7 @@ from .request_manager import RequestBook, submit_request
 from .sensitivity import run_sensitivity, sensitivity_markdown
 from .vehicle_selection import VehicleCatalog
 from .verification import verify_solution
+from .location_validation import validate_route_locations
 
 FRONTEND = PROJECT_ROOT / "frontend"
 REPORTS = {"validation", "greedy", "ip", "comparison", "sensitivity"}
@@ -48,10 +50,54 @@ STATIC_TYPES = {
 LOCK = threading.Lock()
 
 
+# Exact vehicle choices and passenger capacities accepted by the student UI.
+# Auto capacity is selectable as either 4 or 5; its fare may be a driver quote.
+STUDENT_VEHICLE_CAPACITIES = {
+    "Uber Go": (4,),
+    "Go Non AC": (4,),
+    "Premier": (4,),
+    "Uber XL": (6,),
+    "Auto": (4, 5),
+    "Other 4 Seater Car": (4,),
+    "Other 6 Seater Car": (6,),
+}
+
+
+def _validate_student_vehicle(vehicle_type, capacity):
+    vehicle = str(vehicle_type or "").strip()
+    if vehicle not in STUDENT_VEHICLE_CAPACITIES:
+        raise ApiError(400, "Please select a valid vehicle type.")
+    if capacity not in STUDENT_VEHICLE_CAPACITIES[vehicle]:
+        allowed = " or ".join(str(x) for x in STUDENT_VEHICLE_CAPACITIES[vehicle])
+        raise ApiError(
+            400,
+            f"{vehicle} must have a passenger capacity of {allowed}."
+        )
+
+
+def _fare_display(total_fare, fare_status=None):
+    if total_fare is None:
+        return "Fare depends on the auto driver's quotation."
+    try:
+        amount = Decimal(str(total_fare))
+        if not amount.is_finite() or amount <= 0:
+            return "Fare not available"
+        return f"Rs {amount:,.2f}"
+    except Exception:
+        return "Fare not available"
+
+
+
 class ApiError(Exception):
     def __init__(self, status: int, message: str):
         super().__init__(message)
         self.status = status
+
+def _validate_route_locations(pickup, destination):
+    try:
+        validate_route_locations(pickup, destination)
+    except ValueError as exc:
+        raise ApiError(400, str(exc)) from exc
 
 
 def _json_default(o):
@@ -200,6 +246,7 @@ def solution_payload(solution, ds: Dataset, errors: list[str]) -> dict:
             "luggage_used": lug,
             "luggage_capacity": p.luggage_capacity,
             "total_fare": p.total_fare,
+            "fare_display": _fare_display(p.total_fare, p.fare_status),
             "fare_status": p.fare_status,
             "request_ids": p.request_ids,
             "parties": parties,
@@ -272,40 +319,275 @@ class Api:
         )
         temp.replace(path)
 
-    def student_post_offer(self, body):
+    def _student_record(self, roll_number):
+        roll = str(roll_number or "").strip().upper()
+        users = auth._read(auth.USERS_FILE)
+        return next((u for u in users.values() if str(u.get("roll_number", "")).upper() == roll), None)
+
+    @staticmethod
+    def _parse_student_departure(value):
+        try:
+            return datetime.strptime(str(value), "%Y-%m-%d %H:%M")
+        except ValueError:
+            raise ApiError(400, "Invalid ride departure time.")
+
+    def student_my_rides(self, user):
+        roll = user["roll_number"].upper()
+        offers = self._student_read("student_ride_offers.json")
+        joins = self._student_read("student_join_requests.json")
+        mine_offers = [dict(r, incoming_requests=[j for j in joins
+                         if j.get("ride_id") == r.get("ride_id") and j.get("status") == "PENDING"],
+                         accepted_passengers=[j for j in joins
+                         if j.get("ride_id") == r.get("ride_id") and j.get("status") in ("ACCEPTED", "CONFIRMED")])
+                       for r in offers if str(r.get("roll_number", "")).upper() == roll]
+        sent = [j for j in joins if str(j.get("request_roll_number", "")).upper() == roll]
+        incoming = [j for j in joins if str(j.get("owner_roll_number", "")).upper() == roll]
+        requests = [r for r in _read_submitted(self.base) if str(r.get("roll_number", "")).upper() == roll]
+        return {"offered_rides": mine_offers, "incoming_requests": incoming,
+                "sent_join_requests": sent, "group_requests": requests}
+
+    def student_upcoming(self, user):
+        roll = user["roll_number"].upper()
+        rides = {r["ride_id"]: r for r in self._student_read("student_ride_offers.json")}
+        joins = self._student_read("student_join_requests.json")
+        upcoming = []
+        for join in joins:
+            if str(join.get("request_roll_number", "")).upper() != roll:
+                continue
+            if join.get("status") not in ("ACCEPTED", "CONFIRMED"):
+                continue
+            ride = rides.get(join.get("ride_id"))
+            if not ride:
+                continue
+            active = [j for j in joins if j.get("ride_id") == ride["ride_id"]
+                      and j.get("status") in ("ACCEPTED", "CONFIRMED")]
+            passengers = int(ride.get("passenger_capacity", 0)) - int(ride.get("available_seats", 0)) + sum(
+                int(j.get("passengers", 0)) for j in active
+            )
+            total_fare = ride.get("total_fare")
+            all_passengers = int(ride.get("passenger_capacity", 0)) - int(ride.get("available_seats", 0)) + sum(
+                int(j.get("passengers", 0)) for j in active
+            )
+            share = (float(total_fare) * int(join.get("passengers", 1)) / all_passengers) if total_fare and all_passengers else None
+            others = [{"name": ride.get("student_name"), "roll_number": ride.get("roll_number"),
+                       "passengers": int(ride.get("passenger_capacity", 0)) - int(ride.get("available_seats", 0)),
+                       "pickup_location": ride.get("pickup_location"), "destination": ride.get("destination")}]
+            others += [{"name": j.get("request_name"), "roll_number": j.get("request_roll_number"),
+                        "passengers": j.get("passengers", 1), "pickup_location": ride.get("pickup_location"),
+                        "destination": ride.get("destination")} for j in active]
+            upcoming.append({
+                "participation_id": join["join_id"], "source": "OFFERED_CAB",
+                "ride_id": ride["ride_id"], "pickup_location": ride["pickup_location"],
+                "destination": ride["destination"], "departure_time": ride["departure_time"],
+                "vehicle_type": ride["vehicle_type"], "total_fare": total_fare,
+                "fare_status": ride.get("fare_status", "ACTUAL" if total_fare is not None else "DRIVER_QUOTATION_REQUIRED"),
+                "fare_display": _fare_display(total_fare),
+                "individual_fare_share": share,
+                "passengers": all_passengers, "available_seats": max(0, int(ride.get("available_seats", 0)) - sum(int(j.get("passengers",0)) for j in active)),
+                "other_students": [x for x in others if str(x.get("roll_number","")).upper() != roll],
+                "status": "CONFIRMED"
+            })
+
+        # Confirmed optimized bookings are tied to a request owned by this session.
+        cfg = self.base
+        try:
+            manager = BookingManager(load_dataset_with_submissions(cfg), cfg)
+            submitted = {x.get("request_id"): x for x in _read_submitted(cfg)}
+            for booking in manager.list_bookings("CONFIRMED"):
+                req_record = submitted.get(booking.get("request_id"), {})
+                if str(req_record.get("roll_number", "")).upper() != roll:
+                    continue
+                ride = manager._ride(booking["ride_id"])
+                req = manager.requests.get(booking["request_id"])
+                split = manager.fare_breakdown(booking["ride_id"])
+                capacity = manager.capacity(booking["ride_id"])
+                other_students = []
+                for other_booking in manager.list_bookings("CONFIRMED"):
+                    if other_booking["ride_id"] != booking["ride_id"] or other_booking["booking_id"] == booking["booking_id"]:
+                        continue
+                    other_request = manager.requests.get(other_booking["request_id"])
+                    other_record = submitted.get(other_booking["request_id"], {})
+                    if other_request:
+                        other_students.append({"name": other_request.student_name,
+                            "roll_number": other_record.get("roll_number", ""),
+                            "passengers": other_booking.get("passengers", 1),
+                            "pickup_location": ride["pickup_location"], "destination": ride["destination"]})
+                if ride.get("booker") is not None:
+                    other_students.append({"name": ride["booker"].label,
+                        "roll_number": "",
+                        "passengers": ride.get("base_passengers", 1),
+                        "pickup_location": ride["pickup_location"], "destination": ride["destination"]})
+                upcoming.append({
+                    "participation_id": booking["booking_id"], "source": "OPTIMIZED_GROUP",
+                    "ride_id": booking["ride_id"], "pickup_location": ride["pickup_location"],
+                    "destination": ride["destination"], "departure_time": ride["departure_time"].strftime("%Y-%m-%d %H:%M"),
+                    "vehicle_type": ride["vehicle_type"], "total_fare": float(ride["total_fare"]) if ride.get("total_fare") is not None else None,
+                    "fare_status": ride.get("fare_status", "ESTIMATED"),
+                    "fare_display": _fare_display(ride.get("total_fare"), ride.get("fare_status")),
+                    "individual_fare_share": float(split.get(booking["request_id"], 0)) if booking["request_id"] in split else None,
+                    "passengers": capacity["seats_used"],
+                    "available_seats": capacity["seats_remaining"],
+                    "other_students": other_students, "status": "CONFIRMED"
+                })
+        except (BookingError, DataValidationError, OSError, ValueError):
+            pass
+        history = [{"participation_id": j.get("join_id"), "ride_id": j.get("ride_id"),
+                    "status": "CANCELLED"} for j in joins
+                   if str(j.get("request_roll_number", "")).upper() == roll and j.get("status") == "CANCELLED"]
+        try:
+            history.extend({"participation_id": b["booking_id"], "ride_id": b["ride_id"],
+                            "status": "CANCELLED"} for b in manager.list_bookings("CANCELLED")
+                           if str(submitted.get(b.get("request_id"), {}).get("roll_number", "")).upper() == roll)
+        except (NameError, UnboundLocalError):
+            pass
+        return {"rides": upcoming, "history": history}
+
+    def cancel_student_participation(self, participation_id, user):
+        roll = user["roll_number"].upper()
+        joins = self._student_read("student_join_requests.json")
+        join = next((j for j in joins if j.get("join_id") == participation_id), None)
+        if join:
+            if str(join.get("request_roll_number", "")).upper() != roll:
+                raise ApiError(403, "You can cancel only your own participation.")
+            if join.get("status") not in ("ACCEPTED", "CONFIRMED"):
+                raise ApiError(409, "This participation is not an active confirmed ride.")
+            rides = self._student_read("student_ride_offers.json")
+            ride = next((r for r in rides if r.get("ride_id") == join.get("ride_id")), None)
+            if not ride:
+                raise ApiError(404, "The associated cab offer was not found.")
+            deadline = self._parse_student_departure(ride["departure_time"]) - timedelta(hours=24)
+            if datetime.now() > deadline:
+                raise ApiError(409, "Cancellation is allowed only at least 24 hours before departure.")
+            join["status"] = "CANCELLED"
+            join["cancelled_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            self._student_write("student_join_requests.json", joins)
+            # Keep the cab offer active. Capacity is recomputed from active accepted joins.
+            return {"message": "Your participation has been cancelled successfully.", "status": "CANCELLED",
+                    "ride_id": ride["ride_id"], "reoptimization": "Capacity released; compatible pending requests may now be accepted."}
+
+        cfg = self.base
+        manager = BookingManager(load_dataset_with_submissions(cfg), cfg)
+        booking = next((b for b in manager.list_bookings() if b.get("booking_id") == participation_id), None)
+        if not booking:
+            raise ApiError(404, "Upcoming ride not found.")
+        submitted = {x.get("request_id"): x for x in _read_submitted(cfg)}
+        if str(submitted.get(booking["request_id"], {}).get("roll_number", "")).upper() != roll:
+            raise ApiError(403, "You can cancel only your own participation.")
+        if booking["status"] != "CONFIRMED":
+            raise ApiError(409, "This participation is not an active confirmed ride.")
+        try:
+            manager.cancel_booking(participation_id)
+        except BookingError as exc:
+            if "Cancellation deadline passed" in str(exc):
+                raise ApiError(409, "Cancellation deadline passed") from exc
+            raise
+        return {"message": "Your participation has been cancelled successfully.", "status": "CANCELLED",
+                "ride_id": booking["ride_id"], "reoptimization": "Remaining capacity released for future matching."}
+
+    def owner_join_action(self, join_id, action, user):
+        joins = self._student_read("student_join_requests.json")
+        join = next((j for j in joins if j.get("join_id") == join_id), None)
+        if not join:
+            raise ApiError(404, "Join request not found.")
+        if str(join.get("owner_roll_number", "")).upper() != user["roll_number"].upper():
+            raise ApiError(403, "Only the cab owner can manage this request.")
+        if join.get("status") != "PENDING":
+            raise ApiError(409, "This join request has already been processed.")
+        rides = self._student_read("student_ride_offers.json")
+        ride = next((r for r in rides if r.get("ride_id") == join.get("ride_id")), None)
+        if not ride or ride.get("status") != "OPEN":
+            raise ApiError(409, "This cab offer is no longer available.")
+        if action == "reject":
+            join["status"] = "REJECTED"
+        else:
+            active = [j for j in joins if j.get("ride_id") == ride["ride_id"] and j.get("join_id") != join_id and j.get("status") in ("PENDING", "ACCEPTED", "CONFIRMED")]
+            used_seats = sum(int(j.get("passengers", 0)) for j in active)
+            used_bags = sum(int(j.get("luggage", 0)) for j in active)
+            if int(ride["available_seats"]) - used_seats < int(join["passengers"]):
+                raise ApiError(409, "Not enough available seats.")
+            if int(ride["luggage_capacity"]) - used_bags < int(join["luggage"]):
+                raise ApiError(409, "Not enough luggage capacity.")
+            join["status"] = "ACCEPTED"
+            join["accepted_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self._student_write("student_join_requests.json", joins)
+        return {"join": join, "message": f"Join request {action}ed."}
+
+    def student_post_offer(self, body, user=None):
+        if user:
+            body = {
+                **body,
+                "student_name": user["name"],
+                "roll_number": user["roll_number"],
+                "contact_number": user.get("contact_number", ""),
+                "gender": user.get("gender", ""),
+            }
+
         required = [
             "student_name", "roll_number", "contact_number",
             "pickup_location", "destination", "travel_date",
             "departure_time", "vehicle_type", "gender",
-            "gender_preference"
+            "gender_preference", "passenger_capacity",
+            "available_seats", "luggage_capacity",
         ]
 
-        if any(not str(body.get(k, "")).strip() for k in required):
+        if any(not str(body.get(key, "")).strip() for key in required):
             raise ApiError(400, "Please fill all required fields.")
+
+        _validate_route_locations(
+            body.get("pickup_location"),
+            body.get("destination"),
+        )
 
         if body.get("cab_booked") != "yes":
             raise ApiError(
-                400, "You must confirm that the cab is already booked."
+                400,
+                "You must confirm that the cab is already booked.",
             )
+
+        vehicle_type = str(body["vehicle_type"]).strip()
 
         try:
             capacity = int(body["passenger_capacity"])
             seats = int(body["available_seats"])
             luggage = int(body["luggage_capacity"])
-            fare = Decimal(str(body["total_fare"]))
             departure = datetime.strptime(
                 body["travel_date"] + " " + body["departure_time"],
-                "%Y-%m-%d %H:%M"
+                "%Y-%m-%d %H:%M",
             )
-        except (KeyError, ValueError, ArithmeticError):
+        except (KeyError, TypeError, ValueError):
             raise ApiError(400, "Please enter valid ride details.")
 
+        _validate_student_vehicle(vehicle_type, capacity)
+
+        raw_fare = body.get("total_fare")
+        if raw_fare in (None, ""):
+            if vehicle_type != "Auto":
+                raise ApiError(
+                    400,
+                    "Enter the actual total fare for this booked cab.",
+                )
+            fare = None
+            fare_status = "DRIVER_QUOTATION_REQUIRED"
+        else:
+            try:
+                fare = Decimal(str(raw_fare))
+            except Exception as exc:
+                raise ApiError(400, "Please enter a valid total fare.") from exc
+
+            if not fare.is_finite() or fare <= 0:
+                raise ApiError(400, "The total fare must be greater than zero.")
+
+            fare_status = "ACTUAL"
+
         if (
-            capacity < 1 or seats < 1 or seats > capacity
-            or luggage < 0 or not fare.is_finite() or fare <= 0
+            capacity < 1
+            or seats < 1
+            or seats > capacity
+            or luggage < 0
         ):
             raise ApiError(
-                400, "Please check the capacity, seats, luggage and fare."
+                400,
+                "Please check the capacity, available seats and luggage.",
             )
 
         if body["gender"].upper() not in ("FEMALE", "MALE", "OTHER"):
@@ -317,27 +599,35 @@ class Api:
         rides = self._student_read("student_ride_offers.json")
 
         ride = {
-            "ride_id": f"STU-RIDE-{len(rides)+1:04d}",
+            "ride_id": f"STU-RIDE-{len(rides) + 1:04d}",
             "student_name": body["student_name"].strip(),
             "roll_number": body["roll_number"].strip(),
             "contact_number": body["contact_number"].strip(),
             "pickup_location": body["pickup_location"].strip(),
             "destination": body["destination"].strip(),
             "departure_time": departure.strftime("%Y-%m-%d %H:%M"),
-            "vehicle_type": body["vehicle_type"].strip(),
+            "vehicle_type": vehicle_type,
             "passenger_capacity": capacity,
             "available_seats": seats,
             "luggage_capacity": luggage,
-            "total_fare": float(fare),
+            "total_fare": float(fare) if fare is not None else None,
+            "fare_status": fare_status,
             "gender": body["gender"].upper(),
             "gender_preference": body["gender_preference"].upper(),
-            "status": "OPEN"
+            "status": "OPEN",
         }
 
         rides.append(ride)
         self._student_write("student_ride_offers.json", rides)
 
-        return {"ride": {"ride_id": ride["ride_id"]}}
+        return {
+            "ride": {
+                "ride_id": ride["ride_id"],
+                "total_fare": ride["total_fare"],
+                "fare_status": ride["fare_status"],
+                "fare_display": _fare_display(ride["total_fare"]),
+            }
+        }
 
     def student_search(self, body):
         required = [
@@ -348,6 +638,11 @@ class Api:
 
         if any(not str(body.get(k, "")).strip() for k in required):
             raise ApiError(400, "Please fill all required fields.")
+
+        _validate_route_locations(
+            body.get("pickup_location"),
+            body.get("destination")
+        )
 
         try:
             passengers = int(body["passengers"])
@@ -419,7 +714,10 @@ class Api:
             if ride["available_seats"] < passengers:
                 continue
 
-            if ride["luggage_capacity"] < luggage:
+            reserved_luggage = sum(j.get("luggage", 0) for j in self._student_read("student_join_requests.json")
+                                   if j.get("ride_id") == ride["ride_id"]
+                                   and j.get("status") in ("PENDING", "ACCEPTED", "CONFIRMED"))
+            if ride["luggage_capacity"] - reserved_luggage < luggage:
                 continue
 
             if not accepts(
@@ -436,6 +734,27 @@ class Api:
             ):
                 continue
 
+            active_joins = [
+                j for j in self._student_read("student_join_requests.json")
+                if j.get("ride_id") == ride["ride_id"]
+                and j.get("status") in ("ACCEPTED", "CONFIRMED")
+            ]
+            base_passengers = (
+                int(ride["passenger_capacity"]) - int(ride["available_seats"])
+            )
+            occupied_passengers = base_passengers + sum(
+                int(j.get("passengers", 0)) for j in active_joins
+            )
+            projected_passengers = occupied_passengers + passengers
+
+            if ride.get("total_fare") is not None and projected_passengers > 0:
+                estimated_share = round(
+                    float(ride["total_fare"]) * passengers / projected_passengers,
+                    2,
+                )
+            else:
+                estimated_share = None
+
             matches.append({
                 "ride_id": ride["ride_id"],
                 "student_name": ride["student_name"],
@@ -445,16 +764,21 @@ class Api:
                 "vehicle_type": ride["vehicle_type"],
                 "available_seats": ride["available_seats"],
                 "luggage_capacity": ride["luggage_capacity"],
-                "estimated_share_per_person": round(
-                    ride["total_fare"] / ride["passenger_capacity"], 2
-                )
+                "total_fare": ride.get("total_fare"),
+                "fare_status": ride.get(
+                    "fare_status",
+                    "ACTUAL" if ride.get("total_fare") is not None
+                    else "DRIVER_QUOTATION_REQUIRED",
+                ),
+                "fare_display": _fare_display(ride.get("total_fare")),
+                "estimated_share_per_person": estimated_share,
             })
 
         return {"matches": matches}
 
-    def student_join(self, body):
+    def student_join(self, body, user=None):
         ride_id = str(body.get("ride_id", "")).strip()
-        roll = str(body.get("request_roll_number", "")).strip()
+        roll = user["roll_number"] if user else str(body.get("request_roll_number", "")).strip()
 
         if not ride_id or not roll:
             raise ApiError(400, "Missing ride or roll number.")
@@ -488,7 +812,12 @@ class Api:
         reserved = sum(
             j["passengers"] for j in joins
             if j["ride_id"] == ride_id
-            and j["status"] in ("PENDING", "CONFIRMED")
+            and j["status"] in ("PENDING", "ACCEPTED", "CONFIRMED")
+        )
+        reserved_luggage = sum(
+            j.get("luggage", 0) for j in joins
+            if j["ride_id"] == ride_id
+            and j["status"] in ("PENDING", "ACCEPTED", "CONFIRMED")
         )
 
         if passengers < 1 or luggage < 0:
@@ -496,7 +825,7 @@ class Api:
 
         if (
             ride["available_seats"] - reserved < passengers
-            or ride["luggage_capacity"] < luggage
+            or ride["luggage_capacity"] - reserved_luggage < luggage
         ):
             raise ApiError(409, "Not enough seats or luggage capacity.")
 
@@ -558,7 +887,11 @@ class Api:
             "ride_gender_columns_present": ds.ride_gender_columns_present
         }
 
-    def post_requests(self, body):
+    def post_requests(self, body, user=None):
+        _validate_route_locations(
+            body.get("pickup_location"),
+            body.get("destination")
+        )
         cfg = self.base
         ds = load_dataset_with_submissions(cfg)
         book = RequestBook(ds.requests)
@@ -596,6 +929,7 @@ class Api:
 
         record = {
             "request_id": req.request_id,
+            "roll_number": user["roll_number"] if user else str(body.get("roll_number", "")),
             "student_name": req.student_name,
             "pickup_location": req.pickup_location,
             "destination": req.destination,
@@ -1003,11 +1337,20 @@ def make_handler(api: Api):
                     )
                     return
 
+                # Student-specific routes always derive identity from the HttpOnly session.
+                student_paths = ("/api/student/", "/api/my-upcoming", "/api/my-rides", "/api/requests")
+                user = None
+                if path.startswith(student_paths):
+                    token = self._get_token()
+                    user = auth.get_session_user(token) if token else None
+                    if not user:
+                        raise ApiError(401, "Please log in to continue.")
+
                 # EXISTING API ROUTES
                 parts = path.strip("/").split("/")[1:]
 
                 with LOCK:
-                    result = self._route(method, parts, body)
+                    result = self._route(method, parts, body, user)
 
                 if isinstance(result, str):
                     return self._send(
@@ -1042,16 +1385,31 @@ def make_handler(api: Api):
                     {"error": f"{type(exc).__name__}: {exc}"}
                 )
 
-        def _route(self, method, parts, body):
+        def _route(self, method, parts, body, user=None):
             match method, parts:
+                case "GET", ["my-rides"]:
+                    return api.student_my_rides(user)
+
+                case "GET", ["my-upcoming"]:
+                    return api.student_upcoming(user)
+
+                case "POST", ["my-upcoming", participation_id, "cancel"]:
+                    return api.cancel_student_participation(participation_id, user)
+
+                case "POST", ["student", "join-requests", join_id, action] if action in ("accept", "reject"):
+                    return api.owner_join_action(join_id, action, user)
+
                 case "POST", ["student", "search"]:
+                    body = {**body, "student_name": user["name"], "roll_number": user["roll_number"],
+                            "contact_number": user.get("contact_number", ""), "gender": user.get("gender", "")}
                     return api.student_search(body)
 
                 case "POST", ["student", "offers"]:
-                    return api.student_post_offer(body)
+                    return api.student_post_offer(body, user)
 
                 case "POST", ["student", "join"]:
-                    return api.student_join(body)
+                    body = {**body, "request_name": user["name"], "request_contact": user.get("contact_number", "")}
+                    return api.student_join(body, user)
 
                 case "GET", ["health"]:
                     return {"ok": True}
@@ -1060,7 +1418,7 @@ def make_handler(api: Api):
                     return api.get_data(body)
 
                 case "POST", ["requests"]:
-                    return api.post_requests(body)
+                    return api.post_requests(body, user)
 
                 case "DELETE", ["requests", rid]:
                     return api.delete_request(rid)
@@ -1122,7 +1480,13 @@ def make_handler(api: Api):
                 or "application/octet-stream"
             )
 
-            self._send(200, target.read_bytes(), ctype)
+            data = target.read_bytes()
+            if target.name == "index.html":
+                # Strip a UTF-8 BOM and leading whitespace before serving HTML.
+                data = data.removeprefix(b"\xef\xbb\xbf").lstrip()
+                if data[:15].lower() == b"<!doctype html>":
+                    data = b"<!doctype html>" + data[15:]
+            self._send(200, data, ctype)
 
         def do_GET(self):
             self._dispatch("GET")

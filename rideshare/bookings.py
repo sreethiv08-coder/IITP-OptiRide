@@ -214,10 +214,7 @@ class BookingManager:
         deadline = self.cancellation_deadline(booking_id)
         now = self.clock()
         if now > deadline:
-            raise BookingError(
-                f"Cancellation deadline passed: bookings on {b['ride_id']} could be cancelled until "
-                f"{deadline:%Y-%m-%d %H:%M} ({self.cfg.cancellation_deadline_hours:g} h before "
-                f"departure); it is now {now:%Y-%m-%d %H:%M}")
+            raise BookingError("Cancellation deadline passed")
         b["status"], b["cancelled_at"] = CANCELLED, now.strftime(TS)
         self._save()
         return b
