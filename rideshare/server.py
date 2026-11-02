@@ -6,6 +6,7 @@ Serves the static frontend and JSON API.
 """
 from __future__ import annotations
 
+import os
 import json
 import mimetypes
 import threading
@@ -1148,13 +1149,16 @@ def make_server(
 
 def serve(
     cfg: Config,
-    host: str = "127.0.0.1",
-    port: int = 8000
+    host: str | None = None,
+    port: int | None = None
 ) -> None:
+    host = host or "0.0.0.0"
+    port = port or int(os.environ.get("PORT", "8000"))
+
     httpd = make_server(cfg, host, port)
 
     print(
-        f"IITP RideShare UI running at "
+        f"IITP OptiRide running at "
         f"http://{host}:{port} (Ctrl+C to stop)"
     )
 
