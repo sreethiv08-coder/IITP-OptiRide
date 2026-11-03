@@ -332,6 +332,35 @@ class Api:
         except ValueError:
             raise ApiError(400, "Invalid ride departure time.")
 
+    def student_profile(self, target_roll, viewer):
+        target = str(target_roll or "").strip().upper()
+        viewer_roll = str(viewer.get("roll_number", "")).strip().upper()
+        record = self._student_record(target)
+        if not record:
+            raise ApiError(404, "Student profile not found.")
+        if target == viewer_roll:
+            accepted = True
+        else:
+            accepted = False
+            joins = self._student_read("student_join_requests.json")
+            for item in joins:
+                if item.get("status") not in ("ACCEPTED", "CONFIRMED"):
+                    continue
+                owner = str(item.get("owner_roll_number", "")).upper()
+                requester = str(item.get("request_roll_number", "")).upper()
+                if {owner, requester} == {viewer_roll, target}:
+                    accepted = True
+                    break
+        profile = {
+            "name": record.get("name", ""),
+            "roll_number": record.get("roll_number", target),
+            "gender": record.get("gender", ""),
+            "contact_visible": accepted,
+        }
+        if accepted:
+            profile["contact_number"] = record.get("contact_number", "")
+        return profile
+
     def student_my_rides(self, user):
         roll = user["roll_number"].upper()
         offers = self._student_read("student_ride_offers.json")
@@ -762,6 +791,7 @@ class Api:
 
             matches.append({
                 "ride_id": ride["ride_id"],
+                "roll_number": ride.get("roll_number", ""),
                 "student_name": ride["student_name"],
                 "pickup_location": ride["pickup_location"],
                 "destination": ride["destination"],
@@ -821,6 +851,7 @@ class Api:
                 continue
             matches.append({
                 "request_id": other["request_id"],
+                "roll_number": other.get("roll_number", ""),
                 "student_name": other["student_name"],
                 "pickup_location": other["pickup_location"],
                 "destination": other["destination"],
@@ -1583,6 +1614,9 @@ def make_handler(api: Api):
 
                 case "GET", ["student", "group-matches"]:
                     return api.student_group_matches(user)
+
+                case "GET", ["student", "profile", roll_number]:
+                    return api.student_profile(roll_number, user)
 
                 case "POST", ["student", "join"]:
                     body = {**body, "request_name": user["name"], "request_contact": user.get("contact_number", "")}

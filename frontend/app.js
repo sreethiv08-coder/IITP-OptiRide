@@ -521,6 +521,8 @@ document.getElementById("findForm").addEventListener(
                                 : "₹" + Number(ride.estimated_share_per_person).toFixed(2)}
                         </p>
 
+                        <button type="button" class="view-profile-btn"
+                            data-profile-roll="${escapeHTML(ride.roll_number || "")}">View Profile</button>
                         <button type="button" class="join-ride-btn"
                             data-ride-id="${escapeHTML(ride.ride_id)}">
                             Request to Join
@@ -532,6 +534,7 @@ document.getElementById("findForm").addEventListener(
             const results = document.getElementById("results");
             results.innerHTML = html;
 
+            bindProfileButtons(results);
             results.querySelectorAll(".join-ride-btn").forEach(button => {
                 button.addEventListener("click", () => {
                     requestToJoin(button.dataset.rideId);
@@ -577,6 +580,27 @@ async function requestToJoin(rideId) {
     }
 }
 
+
+// View only registered User Info fields. The server reveals contact details only after acceptance.
+async function showStudentProfile(roll) {
+    if (!roll) { alert("Student roll number is unavailable."); return; }
+    try {
+        const profile = await getRequest(`/api/student/profile/${encodeURIComponent(roll)}`);
+        const lines = [`Name: ${profile.name || ""}`, `Roll number: ${profile.roll_number || ""}`, `Gender: ${profile.gender || "Not provided"}`];
+        if (profile.contact_visible) lines.push(`Contact number: ${profile.contact_number || "Not provided"}`);
+        else lines.push("Contact number: Visible after your request is accepted.");
+        alert(lines.join("\n"));
+    } catch (error) { alert(error.message); }
+}
+
+function bindProfileButtons(root) {
+    root.querySelectorAll(".view-profile-btn").forEach(button => {
+        if (button.dataset.profileBound) return;
+        button.dataset.profileBound = "1";
+        button.addEventListener("click", () => showStudentProfile(button.dataset.profileRoll));
+    });
+}
+
 // -------------------- FORM A TRAVEL GROUP --------------------
 
 function renderGroupMatches(result) {
@@ -615,9 +639,11 @@ function renderGroupMatches(result) {
             <p><b>Passengers:</b> ${Number(student.passengers)}</p>
             <p><b>Luggage:</b> ${Number(student.luggage)}</p>
             <p><b>Combined group:</b> ${Number(student.combined_passengers)} passenger(s), ${Number(student.combined_luggage)} luggage unit(s)</p>
+            <button type="button" class="view-profile-btn" data-profile-roll="${escapeHTML(student.roll_number || "")}">View Profile</button>
         `;
         container.appendChild(card);
     });
+    bindProfileButtons(container);
 }
 
 document.getElementById("groupForm").addEventListener("submit", async function(event) {
@@ -908,6 +934,7 @@ async function loadMyRides() {
                 ${Number(j.passengers)} passenger(s),
                 ${Number(j.luggage)} luggage unit(s)</p>
                 <p>Status: PENDING</p>
+                <button type="button" class="view-profile-btn" data-profile-roll="${escapeHTML(j.request_roll_number || "")}">View Profile</button>
                 <button type="button" data-action="accept">Accept Request</button>
                 <button type="button" data-action="reject">Reject Request</button>
             `;
@@ -920,6 +947,7 @@ async function loadMyRides() {
 
             incomingBox.appendChild(el);
         });
+        bindProfileButtons(incomingBox);
 
         (data.sent_join_requests || []).forEach(j => {
             const el = document.createElement("p");
@@ -1016,7 +1044,8 @@ async function loadUpcomingRides() {
             const people = (ride.other_students || []).map(student =>
                 `<li>${escapeHTML(student.name)}
                 (${escapeHTML(student.roll_number)}) —
-                ${Number(student.passengers || 1)} passenger(s)</li>`
+                ${Number(student.passengers || 1)} passenger(s)
+                <button type="button" class="view-profile-btn" data-profile-roll="${escapeHTML(student.roll_number || "")}">View Profile</button></li>`
             ).join("") || "<li>Passenger details are not available.</li>";
 
             const card = document.createElement("article");
@@ -1058,6 +1087,7 @@ async function loadUpcomingRides() {
             });
 
             container.appendChild(card);
+            bindProfileButtons(card);
         });
 
         (result.history || []).forEach(item => {
