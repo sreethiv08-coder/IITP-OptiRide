@@ -195,7 +195,86 @@
                 <span class="arrow-circle">→</span>
             </button>
 
+            <button type="button" class="choice-card group-card"
+                    onclick="showSection('form-group')">
+                <div class="choice-icon">◎</div>
+                <div class="choice-content">
+                    <h2>Form a Travel Group</h2>
+                    <p>No cab offer yet? Find students travelling on your route and coordinate a shared cab.</p>
+                    <span class="card-caption">Find your people, then plan your ride.</span>
+                </div>
+                <span class="arrow-circle">→</span>
+            </button>
+
         </div>
+    </section>
+
+    <!-- FORM A TRAVEL GROUP -->
+
+    <section id="form-group" class="form-section hidden">
+        <button type="button" class="back-btn"
+                onclick="showSection('home')">← Back</button>
+
+        <div class="section-heading">
+            <span class="eyebrow">TRAVEL TOGETHER</span>
+            <h1>Form a Travel Group</h1>
+            <p>Find students with compatible travel plans, even when nobody has booked a cab yet.</p>
+            <p class="account-gender-note">Gender used for matching (from your profile): <strong id="groupAccountGender">Not available</strong></p>
+        </div>
+
+        <form id="groupForm" class="ride-form">
+            <label for="groupPickup">Pickup Location</label>
+            <select id="groupPickup" name="pickup_location" required>
+                <option value="" selected disabled>Select pickup location</option>
+                <option value="IIT Patna">IIT Patna</option>
+                <option value="Dhanapur">Dhanapur</option>
+                <option value="Patna Airport">Patna Airport</option>
+                <option value="Patna Railway Station">Patna Railway Station</option>
+                <option value="Patna Junction Railway Station">Patna Junction Railway Station</option>
+                <option value="Ara Railway Station">Ara Railway Station</option>
+                <option value="Bihta Railway Station">Bihta Railway Station</option>
+            </select>
+
+            <label for="groupDestination">Destination</label>
+            <select id="groupDestination" name="destination" required>
+                <option value="" selected disabled>Select destination</option>
+                <option value="IIT Patna">IIT Patna</option>
+                <option value="Dhanapur">Dhanapur</option>
+                <option value="Patna Airport">Patna Airport</option>
+                <option value="Patna Railway Station">Patna Railway Station</option>
+                <option value="Patna Junction Railway Station">Patna Junction Railway Station</option>
+                <option value="Ara Railway Station">Ara Railway Station</option>
+                <option value="Bihta Railway Station">Bihta Railway Station</option>
+            </select>
+
+            <label for="groupDate">Travel Date</label>
+            <input id="groupDate" type="date" name="travel_date" required>
+
+            <label for="groupTime">Preferred Travel Time</label>
+            <input id="groupTime" type="time" name="travel_time" required>
+
+            <label for="groupPassengers">Number of Passengers</label>
+            <input id="groupPassengers" type="number" name="passengers"
+                   min="1" max="6" value="1" required>
+
+            <label for="groupLuggage">Number of Luggage Units</label>
+            <input id="groupLuggage" type="number" name="luggage"
+                   min="0" value="0" required>
+
+            <label for="groupGenderPreference">Gender Preference</label>
+            <select id="groupGenderPreference" name="gender_preference" required>
+                <option value="ANY">Any gender</option>
+                <option value="SAME">Same gender only</option>
+            </select>
+
+            <button type="submit">Find Compatible Students</button>
+        </form>
+
+        <p id="groupMessage" role="status"></p>
+        <div id="groupResults"></div>
+        <button type="button" id="refreshGroupMatches" class="secondary-action">
+            Refresh Matches
+        </button>
     </section>
 
     <!-- FIND A RIDE -->

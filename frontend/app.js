@@ -200,6 +200,9 @@ function fillStudentDetails() {
     document.getElementById("profileGender").textContent =
         currentUser.gender || "Not added";
 
+    const groupGender = document.getElementById("groupAccountGender");
+    if (groupGender) groupGender.textContent = currentUser.gender || "Not added";
+
     const initial = name.trim().charAt(0).toUpperCase() || "?";
 
     document.getElementById("profileInitial").textContent = initial;
@@ -386,7 +389,7 @@ document.getElementById("logoutBtn").addEventListener(
 // -------------------- NAVIGATION --------------------
 
 function showSection(section) {
-    ["home", "find", "offer", "my-rides", "my-upcoming"].forEach(id => {
+    ["home", "find", "offer", "form-group", "my-rides", "my-upcoming"].forEach(id => {
         document.getElementById(id).classList.toggle(
             "hidden",
             id !== section
@@ -571,6 +574,104 @@ async function requestToJoin(rideId) {
 
     } catch (error) {
         alert(error.message);
+    }
+}
+
+// -------------------- FORM A TRAVEL GROUP --------------------
+
+function renderGroupMatches(result) {
+    const container = document.getElementById("groupResults");
+    const matches = result.student_matches || [];
+    container.innerHTML = "";
+
+    if (!result.request) {
+        container.textContent = "Submit your travel details to find compatible students.";
+        return;
+    }
+
+    const summary = document.createElement("p");
+    summary.className = "group-request-summary";
+    summary.textContent = `Your request: ${result.request.pickup_location} → ${result.request.destination}, ${result.request.travel_time}.`;
+    container.appendChild(summary);
+
+    const heading = document.createElement("h2");
+    heading.textContent = "Students with Compatible Travel Requests";
+    container.appendChild(heading);
+
+    if (!matches.length) {
+        const empty = document.createElement("p");
+        empty.textContent = "No compatible student requests found yet. Try refreshing later.";
+        container.appendChild(empty);
+        return;
+    }
+
+    matches.forEach(student => {
+        const card = document.createElement("article");
+        card.className = "ride-card upcoming-ride-card";
+        card.innerHTML = `
+            <h3>${escapeHTML(student.student_name)}</h3>
+            <p><b>Route:</b> ${escapeHTML(student.pickup_location)} → ${escapeHTML(student.destination)}</p>
+            <p><b>Travel time:</b> ${escapeHTML(student.travel_time)}</p>
+            <p><b>Passengers:</b> ${Number(student.passengers)}</p>
+            <p><b>Luggage:</b> ${Number(student.luggage)}</p>
+            <p><b>Combined group:</b> ${Number(student.combined_passengers)} passenger(s), ${Number(student.combined_luggage)} luggage unit(s)</p>
+        `;
+        container.appendChild(card);
+    });
+}
+
+document.getElementById("groupForm").addEventListener("submit", async function(event) {
+    event.preventDefault();
+    const data = getFormData(this);
+
+    if (!validRoute(data.pickup_location, data.destination)) {
+        showMessage("groupMessage", "Please select different valid pickup and destination locations.", true);
+        return;
+    }
+
+    data.passengers = Number(data.passengers);
+    data.luggage = Number(data.luggage);
+    if (!Number.isInteger(data.passengers) || data.passengers < 1 || data.passengers > 6 ||
+        !Number.isInteger(data.luggage) || data.luggage < 0) {
+        showMessage("groupMessage", "Enter a valid passenger and luggage count.", true);
+        return;
+    }
+
+    showMessage("groupMessage", "Submitting your travel request...");
+    try {
+        const result = await sendRequest("/api/student/group-requests", data);
+        renderGroupMatches(result);
+        showMessage("groupMessage", "Your travel request is active. Compatible students are shown below.");
+    } catch (error) {
+        showMessage("groupMessage", error.message, true);
+    }
+});
+
+document.getElementById("refreshGroupMatches").addEventListener("click", async () => {
+    showMessage("groupMessage", "Refreshing compatible student requests...");
+    try {
+        const result = await getRequest("/api/student/group-matches");
+        renderGroupMatches(result);
+        showMessage("groupMessage", "Travel group matches refreshed.");
+    } catch (error) {
+        showMessage("groupMessage", error.message, true);
+    }
+});
+
+async function cancelCabOffer(rideId) {
+    if (!rideId) return;
+    if (!window.confirm("Are you sure you want to cancel this cab offer? Pending join requests will also be cancelled.")) {
+        return;
+    }
+    try {
+        const result = await sendRequest(
+            `/api/student/offers/${encodeURIComponent(rideId)}/cancel`,
+            {}
+        );
+        showMessage("myRidesMessage", result.message || "Cab offer cancelled.");
+        await loadMyRides();
+    } catch (error) {
+        showMessage("myRidesMessage", error.message, true);
     }
 }
 
@@ -777,8 +878,20 @@ async function loadMyRides() {
                 <p>Total fare: ${fare}</p>
                 <p>Available seats: ${Number(r.available_seats)}</p>
                 <p>Available luggage: ${Number(r.luggage_capacity)}</p>
-                <p>Accepted passengers: ${(r.accepted_passengers || []).length}</p>
+                <p class="accepted-passengers-label">Accepted Passengers: ${(r.accepted_passengers || []).length}</p>
+                <p><b>Status:</b> ${escapeHTML(r.status || "OPEN")}</p>
+                ${r.status === "OPEN" ? `
+                    <button type="button" class="cancel-offer-btn"
+                        data-ride-id="${escapeHTML(r.ride_id)}">Cancel Offer</button>
+                ` : ""}
             `;
+
+            const cancelButton = el.querySelector(".cancel-offer-btn");
+            if (cancelButton) {
+                cancelButton.addEventListener("click", () => {
+                    cancelCabOffer(r.ride_id);
+                });
+            }
 
             offersBox.appendChild(el);
         });
@@ -810,7 +923,7 @@ async function loadMyRides() {
 
         (data.sent_join_requests || []).forEach(j => {
             const el = document.createElement("p");
-            el.textContent = `${j.ride_id}: ${j.status}`;
+            el.textContent = `${j.ride_id}: ${j.status}${j.cancellation_reason ? " — " + j.cancellation_reason : ""}`;
             sentBox.appendChild(el);
         });
 

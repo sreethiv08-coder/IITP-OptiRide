@@ -23,6 +23,9 @@ Open `http://127.0.0.1:8000`.
 - `POST /api/my-upcoming/{participation_id}/cancel` — cancel the logged-in user's own confirmed participation.
 - `POST /api/student/join-requests/{join_id}/accept` — owner-only acceptance, with capacity and luggage rechecks.
 - `POST /api/student/join-requests/{join_id}/reject` — owner-only rejection.
+- `POST /api/student/group-requests` — save or update the authenticated student's active travel-group request and return compatible students.
+- `GET /api/student/group-matches` — refresh compatible travel-group requests for the authenticated student.
+- `POST /api/student/offers/{ride_id}/cancel` — owner-only cancellation of a posted cab offer.
 
 All these endpoints require the existing HttpOnly session cookie. User identity is taken from the session, not from a roll number submitted by the browser. The API routes execute under the server's shared request lock; JSON writes use a temporary file and atomic replacement.
 
@@ -33,6 +36,10 @@ All these endpoints require the existing HttpOnly session cookie. User identity 
 - Accepted join requests are marked `CANCELLED`. Capacity and luggage usage are computed from active join records, so cancelled participation no longer consumes either resource. The original cab offer remains `OPEN`.
 - Confirmed Optimization/BookingManager bookings use the existing booking store and cancellation logic. Fare breakdowns are recalculated from active bookings.
 - Pending join requests do not appear on My Upcoming Ride.
+- Cancelling a cab offer is a separate owner action and does not weaken the 24-hour rule for cancelling an accepted student's participation.
+- When an owner cancels an offer, its status becomes `CANCELLED`; pending and accepted join records are retained but marked `CANCELLED_BY_OWNER` with a reason, so affected students can see why their request/participation ended. The cancelled offer is excluded from ride search and new join requests.
+- Travel-group requests are stored in `outputs/student_group_requests.json`. One active request per student is retained; past requests are excluded. Matches require the same route and date, departure times within two hours, mutual gender-preference compatibility, and a combined group size of no more than six passengers. Contact numbers are never returned in the match results.
+- The registered gender from the student's authenticated profile is used for group matching; the form asks only for the student's gender preference.
 
 ## Tests
 

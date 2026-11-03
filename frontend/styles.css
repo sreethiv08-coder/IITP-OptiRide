@@ -768,3 +768,50 @@ form input[type="checkbox"] {
 #my-rides button[data-action] { border: 0; border-radius: 8px; padding: 9px 13px; margin: 5px 5px 5px 0; cursor: pointer; }
 #my-rides button[data-action="accept"] { background: #238b73; color: #fff; }
 #my-rides button[data-action="reject"] { background: #a83245; color: #fff; }
+
+
+/* New travel-group feature and cab-offer controls */
+.group-card .choice-icon { background: #e8f2ff; color: #315f9a; }
+.accepted-passengers-label {
+    margin-top: 12px;
+    font-size: 1.12rem;
+    font-weight: 800;
+    color: #174b4b;
+}
+.cancel-offer-btn {
+    margin-top: 14px;
+    border: 0;
+    border-radius: 9px;
+    padding: 10px 15px;
+    background: #a83245;
+    color: #fff;
+    font-weight: 700;
+    cursor: pointer;
+}
+.cancel-offer-btn:hover { background: #842638; }
+.group-request-summary {
+    margin: 20px 0 12px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: var(--light-mint);
+    font-weight: 700;
+}
+#groupResults h2 {
+    margin: 22px 0 12px;
+    color: var(--teal);
+}
+.secondary-action {
+    margin-top: 14px;
+    border: 1px solid var(--green);
+    border-radius: 9px;
+    padding: 10px 15px;
+    color: var(--green);
+    background: #fff;
+    font-weight: 700;
+}
+
+.account-gender-note {
+    margin-top: 10px;
+    color: var(--muted);
+    font-size: 13px;
+}

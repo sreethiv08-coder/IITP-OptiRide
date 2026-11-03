@@ -7,6 +7,7 @@ Serves the static frontend and JSON API.
 from __future__ import annotations
 
 import os
+import re
 import json
 import mimetypes
 import threading
@@ -338,7 +339,11 @@ class Api:
         mine_offers = [dict(r, incoming_requests=[j for j in joins
                          if j.get("ride_id") == r.get("ride_id") and j.get("status") == "PENDING"],
                          accepted_passengers=[j for j in joins
-                         if j.get("ride_id") == r.get("ride_id") and j.get("status") in ("ACCEPTED", "CONFIRMED")])
+                         if j.get("ride_id") == r.get("ride_id") and (
+                             j.get("status") in ("ACCEPTED", "CONFIRMED")
+                             or (j.get("status") == "CANCELLED_BY_OWNER"
+                                 and j.get("previous_status") in ("ACCEPTED", "CONFIRMED"))
+                         )])
                        for r in offers if str(r.get("roll_number", "")).upper() == roll]
         sent = [j for j in joins if str(j.get("request_roll_number", "")).upper() == roll]
         incoming = [j for j in joins if str(j.get("owner_roll_number", "")).upper() == roll]
@@ -775,6 +780,169 @@ class Api:
             })
 
         return {"matches": matches}
+
+    @staticmethod
+    def _student_gender_accepts(preference, own_gender, other_gender):
+        preference = str(preference or "").upper()
+        own_gender = str(own_gender or "").upper()
+        other_gender = str(other_gender or "").upper()
+        return preference == "ANY" or (
+            preference == "SAME" and own_gender == other_gender
+        )
+
+    def _student_group_matches(self, request, requests):
+        matches = []
+        wanted = datetime.strptime(request["travel_time"], "%Y-%m-%d %H:%M")
+        for other in requests:
+            if other.get("status") != "ACTIVE":
+                continue
+            if str(other.get("roll_number", "")).casefold() == str(request.get("roll_number", "")).casefold():
+                continue
+            try:
+                other_time = datetime.strptime(other["travel_time"], "%Y-%m-%d %H:%M")
+            except (KeyError, TypeError, ValueError):
+                continue
+            if other_time.date() != wanted.date():
+                continue
+            if other_time < datetime.now():
+                continue
+            if abs((other_time - wanted).total_seconds()) > 7200:
+                continue
+            if str(other.get("pickup_location", "")).strip().casefold() != request["pickup_location"].strip().casefold():
+                continue
+            if str(other.get("destination", "")).strip().casefold() != request["destination"].strip().casefold():
+                continue
+            if not self._student_gender_accepts(request["gender_preference"], request["gender"], other.get("gender")):
+                continue
+            if not self._student_gender_accepts(other.get("gender_preference"), other.get("gender"), request["gender"]):
+                continue
+            combined_passengers = int(request["passengers"]) + int(other["passengers"])
+            if combined_passengers > 6:
+                continue
+            matches.append({
+                "request_id": other["request_id"],
+                "student_name": other["student_name"],
+                "pickup_location": other["pickup_location"],
+                "destination": other["destination"],
+                "travel_time": other["travel_time"],
+                "passengers": int(other["passengers"]),
+                "luggage": int(other["luggage"]),
+                "combined_passengers": combined_passengers,
+                "combined_luggage": int(request["luggage"]) + int(other["luggage"]),
+            })
+        return matches
+
+    def student_form_group(self, body, user):
+        required = ("pickup_location", "destination", "travel_date", "travel_time",
+                    "passengers", "luggage", "gender_preference")
+        if any(not str(body.get(key, "")).strip() for key in required):
+            raise ApiError(400, "Please fill all required fields.")
+        _validate_route_locations(body.get("pickup_location"), body.get("destination"))
+        try:
+            passengers = int(body["passengers"])
+            luggage = int(body["luggage"])
+            wanted = datetime.strptime(
+                str(body["travel_date"]) + " " + str(body["travel_time"]),
+                "%Y-%m-%d %H:%M"
+            )
+        except (TypeError, ValueError):
+            raise ApiError(400, "Invalid passenger, luggage, date or time.")
+        if passengers < 1 or passengers > 6 or luggage < 0:
+            raise ApiError(400, "Passenger count must be between 1 and 6 and luggage cannot be negative.")
+        if wanted <= datetime.now():
+            raise ApiError(400, "Please choose a future travel date and time.")
+        gender = str(user.get("gender", "")).upper()
+        preference = str(body["gender_preference"]).upper()
+        if gender not in ("FEMALE", "MALE", "OTHER"):
+            raise ApiError(400, "Your account must have a valid gender to form a travel group.")
+        if preference not in ("SAME", "ANY"):
+            raise ApiError(400, "Invalid gender preference.")
+
+        requests = self._student_read("student_group_requests.json")
+        roll = str(user["roll_number"]).upper()
+        # Keep one active request per student; preserve older requests as history.
+        for old in requests:
+            if str(old.get("roll_number", "")).upper() == roll and old.get("status") == "ACTIVE":
+                old["status"] = "SUPERSEDED"
+        numeric_ids = []
+        for item in requests:
+            match = re.fullmatch(r"GROUP-(\d+)", str(item.get("request_id", "")))
+            if match:
+                numeric_ids.append(int(match.group(1)))
+        request = {
+            "request_id": f"GROUP-{max(numeric_ids, default=0) + 1:04d}",
+            "student_name": user["name"],
+            "roll_number": roll,
+            "pickup_location": str(body["pickup_location"]).strip(),
+            "destination": str(body["destination"]).strip(),
+            "travel_time": wanted.strftime("%Y-%m-%d %H:%M"),
+            "passengers": passengers,
+            "luggage": luggage,
+            "gender": gender,
+            "gender_preference": preference,
+            "status": "ACTIVE",
+            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        requests.append(request)
+        self._student_write("student_group_requests.json", requests)
+        return {
+            "request": {k: request[k] for k in (
+                "request_id", "pickup_location", "destination", "travel_time",
+                "passengers", "luggage", "status"
+            )},
+            "student_matches": self._student_group_matches(request, requests),
+        }
+
+    def student_group_matches(self, user):
+        roll = str(user["roll_number"]).upper()
+        requests = self._student_read("student_group_requests.json")
+        mine = [r for r in requests if str(r.get("roll_number", "")).upper() == roll and r.get("status") == "ACTIVE"]
+        if not mine:
+            return {"request": None, "student_matches": []}
+        request = mine[-1]
+        try:
+            wanted = datetime.strptime(request["travel_time"], "%Y-%m-%d %H:%M")
+        except (KeyError, TypeError, ValueError):
+            return {"request": None, "student_matches": []}
+        if wanted <= datetime.now():
+            request["status"] = "EXPIRED"
+            self._student_write("student_group_requests.json", requests)
+            return {"request": None, "student_matches": []}
+        return {
+            "request": {k: request[k] for k in (
+                "request_id", "pickup_location", "destination", "travel_time",
+                "passengers", "luggage", "status"
+            )},
+            "student_matches": self._student_group_matches(request, requests),
+        }
+
+    def student_cancel_offer(self, ride_id, user):
+        rides = self._student_read("student_ride_offers.json")
+        ride = next((r for r in rides if r.get("ride_id") == ride_id), None)
+        if not ride:
+            raise ApiError(404, "Cab offer not found.")
+        if str(ride.get("roll_number", "")).upper() != str(user.get("roll_number", "")).upper():
+            raise ApiError(403, "Only the owner can cancel this cab offer.")
+        if ride.get("status") != "OPEN":
+            raise ApiError(409, "This cab offer is no longer open.")
+        ride["status"] = "CANCELLED"
+        ride["cancelled_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        joins = self._student_read("student_join_requests.json")
+        cancelled = []
+        for join in joins:
+            if join.get("ride_id") == ride_id and join.get("status") in ("PENDING", "ACCEPTED", "CONFIRMED"):
+                join["previous_status"] = join.get("status")
+                join["status"] = "CANCELLED_BY_OWNER"
+                join["cancellation_reason"] = "The cab owner cancelled this offer."
+                join["cancelled_at"] = ride["cancelled_at"]
+                cancelled.append(join.get("join_id"))
+        self._student_write("student_ride_offers.json", rides)
+        self._student_write("student_join_requests.json", joins)
+        return {
+            "message": "Your cab offer has been cancelled.",
+            "status": "CANCELLED",
+            "cancelled_pending_requests": len(cancelled),
+        }
 
     def student_join(self, body, user=None):
         ride_id = str(body.get("ride_id", "")).strip()
@@ -1406,6 +1574,15 @@ def make_handler(api: Api):
 
                 case "POST", ["student", "offers"]:
                     return api.student_post_offer(body, user)
+
+                case "POST", ["student", "offers", ride_id, "cancel"]:
+                    return api.student_cancel_offer(ride_id, user)
+
+                case "POST", ["student", "group-requests"]:
+                    return api.student_form_group(body, user)
+
+                case "GET", ["student", "group-matches"]:
+                    return api.student_group_matches(user)
 
                 case "POST", ["student", "join"]:
                     body = {**body, "request_name": user["name"], "request_contact": user.get("contact_number", "")}
