@@ -640,7 +640,20 @@ function renderGroupMatches(result) {
             <p><b>Luggage:</b> ${Number(student.luggage)}</p>
             <p><b>Combined group:</b> ${Number(student.combined_passengers)} passenger(s), ${Number(student.combined_luggage)} luggage unit(s)</p>
             <button type="button" class="view-profile-btn" data-profile-roll="${escapeHTML(student.roll_number || "")}">View Profile</button>
+            <button type="button" class="send-group-request-btn" data-request-id="${escapeHTML(student.request_id)}" ${student.group_request_status === "PENDING" || student.group_request_status === "ACCEPTED" ? "disabled" : ""}>${student.group_request_status === "PENDING" ? "Request Sent" : student.group_request_status === "ACCEPTED" ? "Group Confirmed" : "Send Group Request"}</button>
         `;
+        card.querySelector(".send-group-request-btn").addEventListener("click", async (event) => {
+            const button = event.currentTarget;
+            button.disabled = true;
+            try {
+                const response = await sendRequest(`/api/student/group-requests/${encodeURIComponent(button.dataset.requestId)}/send`, {});
+                button.textContent = "Request Sent";
+                showMessage("groupMessage", response.message || "Group request sent.");
+            } catch (error) {
+                button.disabled = false;
+                showMessage("groupMessage", error.message, true);
+            }
+        });
         container.appendChild(card);
     });
     bindProfileButtons(container);
@@ -888,6 +901,47 @@ async function loadMyRides() {
             groupBox.appendChild(el);
         });
 
+        (data.incoming_group_requests || []).filter(g => g.status === "PENDING").forEach(g => {
+            const el = document.createElement("article");
+            el.className = "ride-card upcoming-ride-card";
+            el.innerHTML = `<h3>Incoming travel group request</h3>
+                <p>${escapeHTML(g.from_name)} (${escapeHTML(g.from_roll)}) wants to form a group with you.</p>
+                <button type="button" class="view-profile-btn" data-profile-roll="${escapeHTML(g.from_roll)}">View Profile</button>
+                <button type="button" data-group-action="accept">Accept Group Request</button>
+                <button type="button" data-group-action="reject">Reject Group Request</button>`;
+            el.querySelectorAll("[data-group-action]").forEach(button => button.addEventListener("click", async () => {
+                button.disabled = true;
+                try {
+                    const result = await sendRequest(`/api/student/group-join-requests/${encodeURIComponent(g.group_join_id)}/${button.dataset.groupAction}`, {});
+                    showMessage("myRidesMessage", result.message);
+                    await loadMyRides();
+                    await loadUpcomingRides();
+                } catch (error) { button.disabled = false; showMessage("myRidesMessage", error.message, true); }
+            }));
+            groupBox.appendChild(el);
+            bindProfileButtons(el);
+        });
+
+        (data.sent_group_requests || []).forEach(g => {
+            const el = document.createElement("p");
+            el.textContent = `Group request to ${g.to_name}: ${g.status}`;
+            groupBox.appendChild(el);
+        });
+
+        (data.confirmed_group_rides || []).forEach(g => {
+            const el = document.createElement("article");
+            el.className = "ride-card upcoming-ride-card";
+            const recommendation = g.vehicle_recommendation || {};
+            el.innerHTML = `<h3>Confirmed group ride — ${escapeHTML(g.group_ride_id)}</h3>
+                <p>${escapeHTML(g.pickup_location)} → ${escapeHTML(g.destination)}</p>
+                <p>Departure: ${escapeHTML(g.departure_time)}</p>
+                <p>Vehicle: ${escapeHTML(recommendation.vehicle_type || "To be confirmed")}</p>
+                <p>Total fare: ${escapeHTML(recommendation.fare_display || "Fare requires confirmation")}</p>
+                <p>Members:</p><ul>${(g.members || []).map(m => `<li>${escapeHTML(m.name)} (${escapeHTML(m.roll_number)}) <button type="button" class="view-profile-btn" data-profile-roll="${escapeHTML(m.roll_number)}">View Profile</button></li>`).join("")}</ul>`;
+            groupBox.appendChild(el);
+            bindProfileButtons(el);
+        });
+
         (data.offered_rides || []).forEach(r => {
             const el = document.createElement("article");
             el.className = "ride-card upcoming-ride-card";
@@ -1082,7 +1136,7 @@ async function loadUpcomingRides() {
                 </button>
             `;
 
-            card.querySelector("button").addEventListener("click", () => {
+            card.querySelector(".cancel-participation-btn").addEventListener("click", () => {
                 cancelMyParticipation(ride.participation_id);
             });
 

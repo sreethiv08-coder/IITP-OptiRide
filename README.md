@@ -54,3 +54,16 @@ The included tests exercise the student-join cancellation flow, session-owner ch
 The uploaded archives contained the Python package and three frontend files, but did not contain the project's `data/` CSV files, `outputs/` JSON data, or a pre-existing test suite. Therefore this change cannot verify your real production records or all optimizer-to-booking transitions. Existing submitted group requests are associated with the authenticated roll number from this change onward; legacy requests without that association cannot safely be attributed to a student and are not shown as that student's confirmed upcoming ride.
 
 The current application persists users, sessions, offers, join requests and bookings in local JSON files. Render's free filesystem is ephemeral; this patch does not introduce PostgreSQL or claim durable persistence across Render restarts. For production, configure persistent storage or migrate these repositories to PostgreSQL before relying on the service for real student bookings. Do not commit `outputs/`, user files, session files, or secrets.
+
+## Student-to-student travel group requests
+
+The Form a Travel Group workflow now supports requests between compatible student travel requests. A student can send a group request from a compatible match card; the recipient can accept or reject it from **My Rides**. Acceptance creates a confirmed group ride shared by both student accounts and displayed in **My Rides** and **My Upcoming Rides**. Duplicate active requests are blocked, and accepting one direction closes any reciprocal pending request for the same pair.
+
+Group ride vehicle recommendations use the project's existing `vehicle_options.csv` catalogue and require both passenger and luggage capacity to fit. If the catalogue has no priced vehicle that fits, the workflow does not invent a fare; an unpriced option is marked as requiring a driver quotation when one is listed. Contact numbers remain hidden in profile previews and become visible through the authenticated profile API only after an accepted cab join or confirmed group ride.
+
+New authenticated endpoints:
+- `POST /api/student/group-requests/{request_id}/send`
+- `POST /api/student/group-join-requests/{group_join_id}/accept`
+- `POST /api/student/group-join-requests/{group_join_id}/reject`
+
+Confirmed group rides and group request records are stored in `outputs/student_confirmed_groups.json` and `outputs/student_group_join_requests.json`. These runtime files are intentionally excluded from source control.

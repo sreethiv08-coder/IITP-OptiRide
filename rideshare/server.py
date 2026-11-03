@@ -351,6 +351,12 @@ class Api:
                 if {owner, requester} == {viewer_roll, target}:
                     accepted = True
                     break
+            if not accepted:
+                for group in self._student_read("student_confirmed_groups.json"):
+                    member_rolls = {str(m.get("roll_number", "")).upper() for m in group.get("members", [])}
+                    if viewer_roll in member_rolls and target in member_rolls and group.get("status") == "CONFIRMED":
+                        accepted = True
+                        break
         profile = {
             "name": record.get("name", ""),
             "roll_number": record.get("roll_number", target),
@@ -376,9 +382,15 @@ class Api:
                        for r in offers if str(r.get("roll_number", "")).upper() == roll]
         sent = [j for j in joins if str(j.get("request_roll_number", "")).upper() == roll]
         incoming = [j for j in joins if str(j.get("owner_roll_number", "")).upper() == roll]
-        requests = [r for r in _read_submitted(self.base) if str(r.get("roll_number", "")).upper() == roll]
+        requests = [r for r in self._student_read("student_group_requests.json") if str(r.get("roll_number", "")).upper() == roll]
+        group_links = self._student_read("student_group_join_requests.json")
+        confirmed_groups = [g for g in self._student_read("student_confirmed_groups.json")
+                            if any(str(m.get("roll_number", "")).upper() == roll for m in g.get("members", []))]
         return {"offered_rides": mine_offers, "incoming_requests": incoming,
-                "sent_join_requests": sent, "group_requests": requests}
+                "sent_join_requests": sent, "group_requests": requests,
+                "incoming_group_requests": [g for g in group_links if str(g.get("to_roll", "")).upper() == roll],
+                "sent_group_requests": [g for g in group_links if str(g.get("from_roll", "")).upper() == roll],
+                "confirmed_group_rides": confirmed_groups}
 
     def student_upcoming(self, user):
         roll = user["roll_number"].upper()
@@ -465,6 +477,25 @@ class Api:
                 })
         except (BookingError, DataValidationError, OSError, ValueError):
             pass
+        for group in self._student_read("student_confirmed_groups.json"):
+            members = group.get("members", [])
+            mine = next((m for m in members if str(m.get("roll_number", "")).upper() == roll), None)
+            if not mine or group.get("status") != "CONFIRMED":
+                continue
+            recommendation = group.get("vehicle_recommendation") or {}
+            total_fare = recommendation.get("total_fare")
+            total_people = max(1, int(group.get("passengers", 1)))
+            share = (float(total_fare) * int(mine.get("passengers", 1)) / total_people) if total_fare is not None else None
+            upcoming.append({"participation_id": group["group_ride_id"], "source": "CONFIRMED_STUDENT_GROUP",
+                "ride_id": group["group_ride_id"], "pickup_location": group["pickup_location"],
+                "destination": group["destination"], "departure_time": group["departure_time"],
+                "vehicle_type": recommendation.get("vehicle_type", "To be confirmed"),
+                "total_fare": total_fare, "fare_status": recommendation.get("fare_status", "DRIVER_QUOTATION_REQUIRED"),
+                "fare_display": recommendation.get("fare_display", "Fare requires confirmation"),
+                "individual_fare_share": share, "passengers": group.get("passengers", 0),
+                "available_seats": None, "other_students": [m for m in members if str(m.get("roll_number", "")).upper() != roll],
+                "status": "CONFIRMED"})
+
         history = [{"participation_id": j.get("join_id"), "ride_id": j.get("ride_id"),
                     "status": "CANCELLED"} for j in joins
                    if str(j.get("request_roll_number", "")).upper() == roll and j.get("status") == "CANCELLED"]
@@ -916,12 +947,17 @@ class Api:
         }
         requests.append(request)
         self._student_write("student_group_requests.json", requests)
+        matches = self._student_group_matches(request, requests)
+        group_links = self._student_read("student_group_join_requests.json")
+        for match in matches:
+            related = [g for g in group_links if {str(g.get("from_roll", "")).upper(), str(g.get("to_roll", "")).upper()} == {roll, str(match.get("roll_number", "")).upper()}]
+            match["group_request_status"] = related[-1].get("status") if related else "NONE"
         return {
             "request": {k: request[k] for k in (
                 "request_id", "pickup_location", "destination", "travel_time",
                 "passengers", "luggage", "status"
             )},
-            "student_matches": self._student_group_matches(request, requests),
+            "student_matches": matches,
         }
 
     def student_group_matches(self, user):
@@ -939,13 +975,102 @@ class Api:
             request["status"] = "EXPIRED"
             self._student_write("student_group_requests.json", requests)
             return {"request": None, "student_matches": []}
+        matches = self._student_group_matches(request, requests)
+        group_links = self._student_read("student_group_join_requests.json")
+        for match in matches:
+            related = [g for g in group_links if {str(g.get("from_roll", "")).upper(), str(g.get("to_roll", "")).upper()} == {roll, str(match.get("roll_number", "")).upper()}]
+            match["group_request_status"] = related[-1].get("status") if related else "NONE"
         return {
             "request": {k: request[k] for k in (
                 "request_id", "pickup_location", "destination", "travel_time",
                 "passengers", "luggage", "status"
             )},
-            "student_matches": self._student_group_matches(request, requests),
+            "student_matches": matches,
         }
+
+    def student_send_group_request(self, target_request_id, user):
+        requests = self._student_read("student_group_requests.json")
+        roll = str(user.get("roll_number", "")).upper()
+        own = next((r for r in reversed(requests) if str(r.get("roll_number", "")).upper() == roll and r.get("status") == "ACTIVE"), None)
+        target = next((r for r in requests if r.get("request_id") == target_request_id and r.get("status") == "ACTIVE"), None)
+        if not own or not target:
+            raise ApiError(404, "An active travel group request could not be found.")
+        if str(target.get("roll_number", "")).upper() == roll:
+            raise ApiError(400, "You cannot request to join your own group.")
+        compatible = {m["request_id"] for m in self._student_group_matches(own, requests)}
+        if target_request_id not in compatible:
+            raise ApiError(409, "These travel requests are no longer compatible.")
+        links = self._student_read("student_group_join_requests.json")
+        existing = next((g for g in reversed(links) if g.get("from_request_id") == own["request_id"] and g.get("to_request_id") == target_request_id and g.get("status") in ("PENDING", "ACCEPTED")), None)
+        if existing:
+            raise ApiError(409, "You have already sent a group request to this student.")
+        gid = f"GREQ-{max([int(re.sub(r'\D', '', str(x.get('group_join_id','0'))) or 0) for x in links] + [0]) + 1:04d}"
+        links.append({"group_join_id": gid, "from_request_id": own["request_id"], "to_request_id": target_request_id,
+                      "from_roll": roll, "to_roll": str(target["roll_number"]).upper(),
+                      "from_name": user.get("name", ""), "to_name": target.get("student_name", ""),
+                      "status": "PENDING", "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
+        self._student_write("student_group_join_requests.json", links)
+        return {"message": "Group request sent successfully.", "status": "PENDING"}
+
+    def student_group_request_action(self, group_join_id, action, user):
+        links = self._student_read("student_group_join_requests.json")
+        item = next((g for g in links if g.get("group_join_id") == group_join_id), None)
+        if not item:
+            raise ApiError(404, "Group request not found.")
+        roll = str(user.get("roll_number", "")).upper()
+        if str(item.get("to_roll", "")).upper() != roll:
+            raise ApiError(403, "Only the recipient can accept or reject this group request.")
+        if item.get("status") != "PENDING":
+            raise ApiError(409, "This group request has already been processed.")
+        if action == "reject":
+            item["status"] = "REJECTED"
+            self._student_write("student_group_join_requests.json", links)
+            return {"message": "Group request rejected.", "status": "REJECTED"}
+        requests = self._student_read("student_group_requests.json")
+        a = next((r for r in requests if r.get("request_id") == item.get("from_request_id") and r.get("status") == "ACTIVE"), None)
+        b = next((r for r in requests if r.get("request_id") == item.get("to_request_id") and r.get("status") == "ACTIVE"), None)
+        if not a or not b:
+            raise ApiError(409, "One of the travel requests is no longer active.")
+        if b["travel_time"] < datetime.now().strftime("%Y-%m-%d %H:%M"):
+            raise ApiError(409, "This travel request has expired.")
+        if b["request_id"] not in {m["request_id"] for m in self._student_group_matches(a, requests)}:
+            raise ApiError(409, "These travel requests are no longer compatible.")
+        members = [{"name": r.get("student_name", ""), "roll_number": str(r.get("roll_number", "")).upper(),
+                    "passengers": int(r.get("passengers", 1)), "luggage": int(r.get("luggage", 0))} for r in (a, b)]
+        pax = sum(m["passengers"] for m in members); luggage = sum(m["luggage"] for m in members)
+        if pax > 6:
+            raise ApiError(409, "The combined group exceeds the six-passenger limit.")
+        catalog = VehicleCatalog(service.load(self.base).vehicles)
+        option = catalog.cheapest_fitting(b["destination"], pax, luggage)
+        recommendation = None
+        if option:
+            recommendation = {"vehicle_type": option.vehicle_type, "total_fare": float(option.total_fare),
+                "fare_status": "FIXED_OR_LISTED", "fare_display": f"Rs {option.total_fare:,.2f}",
+                "passenger_capacity": option.passenger_capacity, "luggage_capacity": option.luggage_capacity}
+        else:
+            unpriced = [v for v in catalog.unpriced_options(b["destination"]) if v.passenger_capacity >= pax and v.luggage_capacity >= luggage]
+            if unpriced:
+                v = unpriced[0]
+                recommendation = {"vehicle_type": v.vehicle_type, "total_fare": None, "fare_status": "DRIVER_QUOTATION_REQUIRED",
+                    "fare_display": "Fare depends on the driver's quotation.", "passenger_capacity": v.passenger_capacity, "luggage_capacity": v.luggage_capacity}
+        group_id = f"GROUPRIDE-{datetime.now().strftime('%Y%m%d%H%M%S')}-{len(self._student_read('student_confirmed_groups.json'))+1}"
+        groups = self._student_read("student_confirmed_groups.json")
+        group = {"group_ride_id": group_id, "status": "CONFIRMED", "pickup_location": b["pickup_location"],
+            "destination": b["destination"], "departure_time": b["travel_time"], "members": members,
+            "passengers": pax, "luggage": luggage, "vehicle_recommendation": recommendation,
+            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+        groups.append(group); self._student_write("student_confirmed_groups.json", groups)
+        item["status"] = "ACCEPTED"; item["group_ride_id"] = group_id
+        for other_link in links:
+            if other_link is item:
+                continue
+            if {str(other_link.get("from_roll", "")).upper(), str(other_link.get("to_roll", "")).upper()} == {str(item.get("from_roll", "")).upper(), str(item.get("to_roll", "")).upper()} and other_link.get("status") == "PENDING":
+                other_link["status"] = "ALREADY_GROUPED"
+                other_link["group_ride_id"] = group_id
+        self._student_write("student_group_join_requests.json", links)
+        a["status"] = "CONFIRMED"; b["status"] = "CONFIRMED"; a["group_ride_id"] = group_id; b["group_ride_id"] = group_id
+        self._student_write("student_group_requests.json", requests)
+        return {"message": "Group request accepted. The confirmed group ride is now in My Rides and My Upcoming Rides.", "status": "ACCEPTED", "group_ride_id": group_id}
 
     def student_cancel_offer(self, ride_id, user):
         rides = self._student_read("student_ride_offers.json")
@@ -1614,6 +1739,12 @@ def make_handler(api: Api):
 
                 case "GET", ["student", "group-matches"]:
                     return api.student_group_matches(user)
+
+                case "POST", ["student", "group-requests", target_request_id, "send"]:
+                    return api.student_send_group_request(target_request_id, user)
+
+                case "POST", ["student", "group-join-requests", group_join_id, action] if action in ("accept", "reject"):
+                    return api.student_group_request_action(group_join_id, action, user)
 
                 case "GET", ["student", "profile", roll_number]:
                     return api.student_profile(roll_number, user)
